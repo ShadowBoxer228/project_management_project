@@ -170,7 +170,7 @@ export default function NewsSummaryScreen() {
     setExpandedHeadlines(newExpanded);
   };
 
-  const renderTextWithStockLinks = (text) => {
+  const renderTextWithStockLinks = (text, numberOfLines = null) => {
     if (!text) return null;
 
     // Match stock symbols (1-5 uppercase letters, possibly with . for class shares)
@@ -211,11 +211,15 @@ export default function NewsSummaryScreen() {
     }
 
     if (parts.length === 0) {
-      return <Text style={styles.headlineSnippet} numberOfLines={3}>{text}</Text>;
+      return (
+        <Text style={styles.headlineSnippet} numberOfLines={numberOfLines}>
+          {text}
+        </Text>
+      );
     }
 
     return (
-      <Text style={styles.headlineSnippet} numberOfLines={3}>
+      <Text style={styles.headlineSnippet} numberOfLines={numberOfLines}>
         {parts.map((part, idx) => {
           if (part.type === 'link') {
             return (
@@ -325,9 +329,9 @@ export default function NewsSummaryScreen() {
                     </View>
                   </TouchableOpacity>
 
-                  {hasSnippet && isExpanded && (
+                  {hasSnippet && (
                     <View style={styles.snippetContainer}>
-                      {renderTextWithStockLinks(item.snippet)}
+                      {renderTextWithStockLinks(item.snippet, isExpanded ? null : 2)}
                     </View>
                   )}
 

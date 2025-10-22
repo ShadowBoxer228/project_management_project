@@ -24,12 +24,31 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
       try {
         const chartData = generateEnhancedChartData(symbol, timeRange);
 
+        // Validate data structure
+        if (!chartData || chartData.length === 0) {
+          throw new Error('No chart data generated');
+        }
+
+        // Ensure all values are valid numbers
+        const validatedData = chartData.map(point => ({
+          timestamp: point.timestamp,
+          value: Number(point.value) || 0,
+          open: Number(point.open) || 0,
+          high: Number(point.high) || 0,
+          low: Number(point.low) || 0,
+          close: Number(point.close) || 0,
+        }));
+
         if (isActive) {
-          setData(chartData);
-          console.log(`Chart loaded for ${symbol} (${timeRange}): ${chartData.length} points`);
+          setData(validatedData);
+          console.log(`Chart loaded for ${symbol} (${timeRange}): ${validatedData.length} points`);
         }
       } catch (error) {
         console.error(`Error generating chart for ${symbol}:`, error);
+        // Set empty data to show error message
+        if (isActive) {
+          setData([]);
+        }
       } finally {
         if (isActive) {
           setLoading(false);
