@@ -85,7 +85,13 @@ data/: 1 file
 
 **Total Time: 5 minutes**
 
-⚠️ **IMPORTANT**: Stock prices will show "N/A" on web preview due to CORS. This is normal! Test on mobile device for real prices.
+⚠️ **IMPORTANT**:
+- Stock prices will show "N/A" on web preview due to CORS
+- On mobile: Prices load gradually over 1-2 minutes (respecting API rate limits)
+- Charts show mock data if API unavailable (works everywhere)
+- **This is normal!** Test on mobile device for best experience.
+
+📖 **Recent fixes applied** - See [FIXES_APPLIED.md](FIXES_APPLIED.md) for details
 
 ---
 

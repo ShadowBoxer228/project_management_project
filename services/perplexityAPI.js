@@ -76,70 +76,95 @@ const executeCompletion = async ({ messages, maxTokens = 1200, temperature = 0.3
     }
 
     const content = data?.choices?.[0]?.message?.content;
-    return typeof content === 'string' ? content.trim() : null;
+    const citations = data?.citations || [];
+
+    return {
+      content: typeof content === 'string' ? content.trim() : null,
+      citations: citations,
+    };
   } catch (error) {
     console.error('Error executing Perplexity completion:', error);
     return null;
   }
 };
 
-const mapSummaryTextToHeadlines = (summaryText) => {
+const mapSummaryTextToHeadlines = (summaryText, citations = []) => {
   if (!summaryText) return null;
 
-  const lines = summaryText.split('\n').map((line) => line.trim()).filter(Boolean);
+  // Clean up the text - remove markdown, citations numbers like [1], [2], etc.
+  const cleanText = summaryText
+    .replace(/\*\*/g, '')
+    .replace(/\[[\d,\s]+\]/g, '')
+    .trim();
+
+  const lines = cleanText.split('\n').map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return null;
 
   const headlines = [];
+  let summarySection = '';
+  let adviceSection = '';
+  let currentSection = 'summary';
 
-  // Process each line as a potential bullet point
-  lines.forEach((line) => {
-    // Match numbered sections like "1) Title" or "1. Title"
-    const numberedMatch = line.match(/^(\d+)[.)\]]\s*\*?\*?([^:]+):?\s*(.*)$/);
+  // Split content into summary and advice sections
+  lines.forEach((line, index) => {
+    const lowerLine = line.toLowerCase();
 
-    if (numberedMatch) {
-      const title = numberedMatch[2].replace(/\*\*/g, '').trim();
-      const content = numberedMatch[3].trim();
-
-      headlines.push({
-        title: title,
-        snippet: content || null,
-        date: new Date().toISOString(),
-        url: null,
-      });
+    // Detect advice/outlook section - check for headers or last paragraph
+    if (
+      lowerLine.startsWith('market outlook') ||
+      lowerLine.startsWith('key takeaway') ||
+      lowerLine.startsWith('in summary') ||
+      lowerLine.startsWith('advice') ||
+      lowerLine.startsWith('recommendation') ||
+      (index === lines.length - 1 && line.length > 50) // Last substantial line is likely outlook
+    ) {
+      currentSection = 'advice';
     }
-    // Match bullet points starting with - or •
-    else if (line.match(/^[-•]\s*(.+)/)) {
-      const content = line.replace(/^[-•]\s*/, '').trim();
-      const parts = content.split(/:\s*/, 2);
 
-      if (parts.length > 1) {
-        headlines.push({
-          title: parts[0].replace(/\*\*/g, '').trim(),
-          snippet: parts[1].trim(),
-          date: new Date().toISOString(),
-          url: null,
-        });
-      } else {
-        headlines.push({
-          title: content.replace(/\*\*/g, '').trim(),
-          snippet: null,
-          date: new Date().toISOString(),
-          url: null,
-        });
-      }
-    }
-    // If current line extends previous headline
-    else if (headlines.length > 0 && !line.match(/^#+\s/)) {
-      const last = headlines[headlines.length - 1];
-      if (last.snippet) {
-        last.snippet += ' ' + line;
-      } else {
-        last.snippet = line;
+    if (currentSection === 'summary') {
+      summarySection += line + ' ';
+    } else if (currentSection === 'advice') {
+      // Skip header lines like "Market Outlook:" or "**Market Outlook:**"
+      if (!lowerLine.match(/^(market outlook|key takeaway|in summary|advice|recommendation)[:]*$/)) {
+        adviceSection += line + ' ';
       }
     }
   });
 
-  return headlines.length > 0 ? headlines.slice(0, 6) : null;
+  // Create main summary headline with 1-2 sentence highlight
+  const sentences = summarySection.split(/[.!?]+/).filter((s) => s.trim().length > 20);
+  const highlightText = sentences.slice(0, 2).join('.').trim() + (sentences.length > 0 ? '.' : '');
+
+  if (highlightText) {
+    headlines.push({
+      title: 'Market Summary',
+      snippet: highlightText,
+      date: new Date().toISOString(),
+      url: citations[0]?.url || null,
+      source: citations[0] ? 'View Sources' : null,
+      isAiGenerated: true,
+    });
+  }
+
+  // Add advice section if available
+  if (adviceSection.trim()) {
+    const adviceSentences = adviceSection.split(/[.!?]+/).filter((s) => s.trim().length > 15);
+    const adviceText = adviceSentences.slice(0, 2).join('.').trim() + (adviceSentences.length > 0 ? '.' : '');
+
+    if (adviceText) {
+      headlines.push({
+        title: "Today's Market Outlook",
+        snippet: adviceText,
+        date: new Date().toISOString(),
+        url: null,
+        source: null,
+        isAdvice: true,
+        isAiGenerated: true,
+      });
+    }
+  }
+
+  return headlines.length > 0 ? headlines : null;
 };
 
 const mapInsightTextToItems = (text, symbol, companyName) => {
@@ -189,26 +214,38 @@ export const getDailyMarketSummary = async () => {
   });
 
   if (!results) {
-    const completionText = await executeCompletion({
+    const completionResponse = await executeCompletion({
       messages: [
         {
           role: 'system',
           content:
-            'You are a financial analyst providing concise market summaries. Use numbered sections with short explanations.',
+            'You are a financial analyst providing concise, actionable market summaries.',
         },
         {
           role: 'user',
-          content: `Provide a pre-market US market summary for ${todayIso}. Include: 1) overall market sentiment, 2) major economic events, 3) notable earnings, 4) sector highlights, 5) headline risks. Keep it concise.`,
+          content: `Provide a comprehensive pre-market summary for US markets on ${todayIso}.
+
+Write 2-3 paragraphs covering:
+- Current market sentiment and major index movements
+- Key economic events and data releases
+- Notable earnings reports and company news
+- Sector performance and trends
+- Major risks and opportunities
+
+Then end with a section titled "Market Outlook" or "Key Takeaways" that provides 1-2 sentences of actionable advice for traders and investors today.`,
         },
       ],
-      maxTokens: 900,
+      maxTokens: 800,
     });
 
-    if (!completionText) {
+    if (!completionResponse || !completionResponse.content) {
       return null;
     }
 
-    const fallbackHeadlines = mapSummaryTextToHeadlines(completionText);
+    const fallbackHeadlines = mapSummaryTextToHeadlines(
+      completionResponse.content,
+      completionResponse.citations
+    );
     setCachedData(cacheKey, fallbackHeadlines);
     return fallbackHeadlines;
   }
@@ -242,7 +279,7 @@ export const getStockAnalysis = async (symbol, companyName) => {
   });
 
   if (!results) {
-    const completionText = await executeCompletion({
+    const completionResponse = await executeCompletion({
       messages: [
         {
           role: 'system',
@@ -257,11 +294,11 @@ export const getStockAnalysis = async (symbol, companyName) => {
       maxTokens: 800,
     });
 
-    if (!completionText) {
+    if (!completionResponse || !completionResponse.content) {
       return null;
     }
 
-    const fallbackInsights = mapInsightTextToItems(completionText, symbol, companyName);
+    const fallbackInsights = mapInsightTextToItems(completionResponse.content, symbol, companyName);
     setCachedData(cacheKey, fallbackInsights);
     return fallbackInsights;
   }

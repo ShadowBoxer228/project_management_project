@@ -288,27 +288,52 @@ export default function NewsSummaryScreen() {
         {marketHeadlines.length > 0 ? (
           <View style={styles.headlineList}>
             {marketHeadlines.map((item, index) => (
-              <TouchableOpacity
+              <View
                 key={`${item.url || item.title}-${index}`}
-                style={styles.headlineCard}
-                onPress={() => handleOpenLink(item.url)}
-                activeOpacity={item.url ? 0.85 : 1}
-                disabled={!item.url}
+                style={[
+                  styles.headlineCard,
+                  item.isAdvice && styles.adviceCard,
+                ]}
               >
-                <Text style={styles.headlineTitle}>{item.title}</Text>
-                {item.snippet ? renderTextWithStockLinks(item.snippet) : null}
+                <View style={styles.headlineHeader}>
+                  {item.isAdvice && (
+                    <Ionicons
+                      name="bulb"
+                      size={18}
+                      color={theme.colors.warning}
+                      style={{ marginRight: 8 }}
+                    />
+                  )}
+                  <Text style={[styles.headlineTitle, item.isAdvice && styles.adviceTitle]}>
+                    {item.title}
+                  </Text>
+                </View>
+                {item.snippet ? (
+                  <View style={styles.snippetContainer}>
+                    {renderTextWithStockLinks(item.snippet)}
+                  </View>
+                ) : null}
                 <View style={styles.headlineMeta}>
-                  {item.url ? (
-                    <Text style={styles.headlineSource}>{getSourceFromUrl(item.url)}</Text>
+                  {item.source && item.url ? (
+                    <TouchableOpacity
+                      onPress={() => handleOpenLink(item.url)}
+                      style={styles.sourceButton}
+                    >
+                      <Ionicons name="link" size={14} color={theme.colors.primary} />
+                      <Text style={styles.sourceButtonText}>{item.source}</Text>
+                    </TouchableOpacity>
                   ) : null}
-                  {item.date ? (
+                  {item.date && !item.isAiGenerated ? (
                     <>
                       {item.url ? <Text style={styles.headlineSeparator}>•</Text> : null}
                       <Text style={styles.headlineDate}>{formatHeadlineDate(item.date)}</Text>
                     </>
                   ) : null}
+                  {item.isAiGenerated && (
+                    <Text style={styles.aiGeneratedBadge}>AI Summary</Text>
+                  )}
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         ) : (
@@ -537,11 +562,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  adviceCard: {
+    backgroundColor: theme.colors.warning + '10',
+    borderColor: theme.colors.warning + '40',
+  },
+  headlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   headlineTitle: {
     ...theme.typography.body,
     color: theme.colors.text,
     fontWeight: '600',
-    marginBottom: 6,
+    flex: 1,
+  },
+  adviceTitle: {
+    color: theme.colors.warning,
+  },
+  snippetContainer: {
+    marginBottom: theme.spacing.sm,
   },
   headlineSnippet: {
     ...theme.typography.small,
@@ -557,6 +597,27 @@ const styles = StyleSheet.create({
   headlineMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sourceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.primary + '15',
+    gap: 4,
+  },
+  sourceButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  aiGeneratedBadge: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
   },
   headlineSource: {
     ...theme.typography.caption,

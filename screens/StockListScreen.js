@@ -15,7 +15,7 @@ import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { getQuote } from '../services/finnhubAPI';
 import sp100Data from '../data/sp100.json';
 
-const StockListItem = ({ item, onPress }) => {
+const StockListItem = ({ item, index, onPress }) => {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +26,7 @@ const StockListItem = ({ item, onPress }) => {
       setLoading(true);
       try {
         const data = await getQuote(item.symbol);
-        console.log(`${item.symbol} response:`, data);
+        console.log(`${item.symbol} (${index + 1}/100) loaded:`, data);
         if (isMounted && data) {
           setQuote(data);
         }
@@ -39,15 +39,16 @@ const StockListItem = ({ item, onPress }) => {
       }
     };
 
-    // Add small random delay to prevent rate limiting
-    const delay = Math.floor(Math.random() * 500);
-    const timer = setTimeout(fetchQuote, delay);
+    // Sequential loading: Each stock gets a delay based on its position
+    // 600ms per stock = ~60 seconds for 100 stocks (stays within 60 calls/min)
+    const sequentialDelay = index * 600; // Stock #1: 0ms, #2: 600ms, #3: 1200ms, etc.
+    const timer = setTimeout(fetchQuote, sequentialDelay);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [item.symbol]);
+  }, [item.symbol, index]);
 
   const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
   const change = Number.isFinite(quote?.d) ? quote.d : null;
@@ -161,8 +162,8 @@ export default function StockListScreen({ navigation }) {
       <FlatList
         data={filteredStocks}
         keyExtractor={(item) => item.symbol}
-        renderItem={({ item }) => (
-          <StockListItem item={item} onPress={handleStockPress} />
+        renderItem={({ item, index }) => (
+          <StockListItem item={item} index={index} onPress={handleStockPress} />
         )}
         refreshControl={
           <RefreshControl
