@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
-import { getQuote } from '../services/finnhubAPI';
+import { getBulkSnapshots } from '../services/polygonAPI';
 import sp100Data from '../data/sp100.json';
 
 const debugLog = (...args) => {
@@ -22,49 +22,7 @@ const debugLog = (...args) => {
   }
 };
 
-const StockListItem = ({ item, index, onPress }) => {
-  const [quote, setQuote] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchQuote = async () => {
-      if (__DEV__) {
-        debugLog('Fetching quote', { symbol: item.symbol, index });
-      }
-      setLoading(true);
-      try {
-        const data = await getQuote(item.symbol);
-        if (__DEV__) {
-          debugLog('Quote response', { symbol: item.symbol, data });
-        }
-        if (isMounted && data) {
-          setQuote(data);
-        }
-      } catch (error) {
-        console.error(`Error fetching quote for ${item.symbol}:`, error);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    // Sequential loading: Each stock gets a delay based on its position
-    // 600ms per stock = ~60 seconds for 100 stocks (stays within 60 calls/min)
-    const sequentialDelay = index * 600; // Stock #1: 0ms, #2: 600ms, #3: 1200ms, etc.
-    const timer = setTimeout(fetchQuote, sequentialDelay);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-      if (__DEV__) {
-        debugLog('Cleanup quote timer', { symbol: item.symbol });
-      }
-    };
-  }, [item.symbol, index]);
-
+const StockListItem = ({ item, quote, onPress }) => {
   const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
   const change = Number.isFinite(quote?.d) ? quote.d : null;
   const changePercent = Number.isFinite(quote?.dp) ? quote.dp : null;
@@ -77,7 +35,7 @@ const StockListItem = ({ item, index, onPress }) => {
       style={styles.stockItem}
       onPress={() => {
         if (__DEV__) {
-          debugLog('Press stock', { symbol: item.symbol, index });
+          debugLog('Press stock', { symbol: item.symbol });
         }
         onPress(item);
       }}
@@ -88,7 +46,7 @@ const StockListItem = ({ item, index, onPress }) => {
           {item.name}
         </Text>
       </View>
-      {loading ? (
+      {!quote ? (
         <ActivityIndicator size="small" color={theme.colors.textSecondary} />
       ) : (
         <View style={styles.priceContainer}>
@@ -131,7 +89,30 @@ export default function StockListScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [filteredStocks, setFilteredStocks] = useState(sp100Data);
+  const [quotes, setQuotes] = useState({});
+  const [loading, setLoading] = useState(true);
 
+  // Fetch all quotes in bulk
+  const fetchAllQuotes = async () => {
+    try {
+      debugLog('Fetching bulk snapshots for all stocks');
+      const symbols = sp100Data.map((stock) => stock.symbol);
+      const quotesData = await getBulkSnapshots(symbols);
+      debugLog('Bulk snapshots received', { count: Object.keys(quotesData).length });
+      setQuotes(quotesData);
+    } catch (error) {
+      console.error('Error fetching bulk quotes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch quotes on mount
+  useEffect(() => {
+    fetchAllQuotes();
+  }, []);
+
+  // Filter stocks based on search query
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredStocks(sp100Data);
@@ -147,9 +128,8 @@ export default function StockListScreen({ navigation }) {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Force re-render by updating state
-    setFilteredStocks([...filteredStocks]);
-    setTimeout(() => setRefreshing(false), 1000);
+    await fetchAllQuotes();
+    setRefreshing(false);
   };
 
   const handleStockPress = (stock) => {
@@ -185,22 +165,29 @@ export default function StockListScreen({ navigation }) {
           </TouchableOpacity>
         )}
       </View>
-      <FlatList
-        data={filteredStocks}
-        keyExtractor={(item) => item.symbol}
-        renderItem={({ item, index }) => (
-          <StockListItem item={item} index={index} onPress={handleStockPress} />
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={styles.listContent}
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading stock prices...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredStocks}
+          keyExtractor={(item) => item.symbol}
+          renderItem={({ item }) => (
+            <StockListItem item={item} quote={quotes[item.symbol]} onPress={handleStockPress} />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
     </View>
   );
 }
@@ -279,5 +266,15 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: theme.colors.border,
     marginLeft: theme.spacing.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.md,
   },
 });

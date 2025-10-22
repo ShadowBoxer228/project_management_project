@@ -7,7 +7,7 @@ A professional, production-ready mobile application built with React Native (Exp
 ## Key Features
 
 ### 1. Real-Time Stock Market Data
-- **Top 100 S&P Stocks**: Curated list of largest US companies by market cap
+- **Top 30 S&P Stocks**: Curated list of largest US companies by market cap
 - **Live Price Updates**: Real-time quotes with price change indicators
 - **Smart Search**: Instant filtering by symbol or company name
 - **Pull-to-Refresh**: Manual data updates on demand
@@ -29,7 +29,7 @@ A professional, production-ready mobile application built with React Native (Exp
 - Company Profile Information
 
 ### 4. AI-Powered Market Analysis
-Powered by Perplexity AI, providing:
+Powered by Perplexity AI, providing (not exactly, but 5-7 daily bulletpoints):
 - **Daily Market Summary**: Comprehensive pre-market analysis
 - **Economic Events**: FOMC meetings, CPI reports, GDP data
 - **Earnings Calendar**: Companies reporting today

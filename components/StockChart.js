@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import Svg, { Path, Rect, Line } from 'react-native-svg';
 import { theme } from '../utils/theme';
-import { generateEnhancedChartData } from '../services/mockChartData';
+import { getAggregates } from '../services/polygonAPI';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 32;
@@ -101,18 +101,19 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
   useEffect(() => {
     let isActive = true;
 
-    const loadChartData = () => {
+    const loadChartData = async () => {
       if (!isActive) return;
 
       setLoading(true);
       setError(null);
-      debugLog('Loading chart data', { symbol, timeRange });
+      debugLog('Loading chart data from Polygon.io', { symbol, timeRange });
 
       try {
-        const chartData = generateEnhancedChartData(symbol, timeRange);
+        // Fetch data from polygon.io API
+        const chartData = await getAggregates(symbol, timeRange);
 
         if (!chartData || chartData.length === 0) {
-          throw new Error('No chart data generated');
+          throw new Error('No chart data available');
         }
 
         let validatedData = chartData
@@ -134,9 +135,9 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           debugLog('Chart data ready', { symbol, timeRange, points: validatedData.length });
         }
       } catch (err) {
-        console.error(`Error generating chart for ${symbol}:`, err);
+        console.error(`Error loading chart for ${symbol}:`, err);
         if (isActive) {
-          setError('Unable to load chart data');
+          setError(err.message || 'Unable to load chart data');
           setData([]);
           debugLog('Chart data failed', { symbol, timeRange, error: err?.message });
         }
@@ -147,12 +148,11 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
       }
     };
 
-    // Small delay to simulate loading (makes it feel more real)
-    const timer = setTimeout(loadChartData, 300);
+    // Load data immediately
+    loadChartData();
 
     return () => {
       isActive = false;
-      clearTimeout(timer);
     };
   }, [symbol, timeRange]);
 

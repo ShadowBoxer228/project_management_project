@@ -18,13 +18,13 @@ import {
   formatDateTime,
 } from '../utils/formatters';
 import {
-  getQuote,
   getBasicFinancials,
   getCompanyNews,
   getCompanyProfile,
 } from '../services/finnhubAPI';
 import { getCompanyOverview } from '../services/alphaVantageAPI';
 import { getStockAnalysis } from '../services/perplexityAPI';
+import { getPreviousClose } from '../services/polygonAPI';
 import StockChart from '../components/StockChart';
 
 const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
@@ -76,14 +76,14 @@ export default function StockDetailScreen({ route }) {
       setLoading(true);
       try {
         const [
-          quoteData,
+          prevCloseData,
           financialsData,
           profileData,
           overviewData,
           newsData,
           aiData,
         ] = await Promise.all([
-          getQuote(symbol),
+          getPreviousClose(symbol),
           getBasicFinancials(symbol),
           getCompanyProfile(symbol),
           getCompanyOverview(symbol),
@@ -92,6 +92,17 @@ export default function StockDetailScreen({ route }) {
         ]);
 
         if (!isMounted) return;
+
+        // Transform Polygon.io previous close to Finnhub-compatible format
+        const quoteData = prevCloseData ? {
+          c: prevCloseData.close,
+          d: prevCloseData.close - prevCloseData.open,
+          dp: prevCloseData.open !== 0 ? ((prevCloseData.close - prevCloseData.open) / prevCloseData.open) * 100 : 0,
+          v: prevCloseData.volume,
+          h: prevCloseData.high,
+          l: prevCloseData.low,
+          o: prevCloseData.open,
+        } : null;
 
         setQuote(quoteData);
         setFinancials(financialsData);
@@ -322,16 +333,31 @@ export default function StockDetailScreen({ route }) {
         <Text style={styles.sectionTitle}>Recent News</Text>
         {news.length > 0 ? (
           news.map((article, index) => (
-            <View key={index} style={styles.newsItem}>
-              <Text style={styles.newsHeadline} numberOfLines={2}>
-                {article.headline}
-              </Text>
-              <View style={styles.newsMetadata}>
-                <Text style={styles.newsSource}>{article.source}</Text>
-                <Text style={styles.newsDivider}>•</Text>
-                <Text style={styles.newsDate}>{formatDateTime(article.datetime)}</Text>
+            <TouchableOpacity
+              key={index}
+              style={styles.newsItem}
+              onPress={() => handleOpenLink(article.url)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.newsContent}>
+                <View style={styles.newsTextContainer}>
+                  <Text style={styles.newsHeadline} numberOfLines={2}>
+                    {article.headline}
+                  </Text>
+                  <View style={styles.newsMetadata}>
+                    <Text style={styles.newsSource}>{article.source}</Text>
+                    <Text style={styles.newsDivider}>•</Text>
+                    <Text style={styles.newsDate}>{formatDateTime(article.datetime)}</Text>
+                  </View>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                  style={styles.newsIcon}
+                />
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         ) : (
           <Text style={styles.noDataText}>No recent news available</Text>
@@ -539,6 +565,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
+  newsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  newsTextContainer: {
+    flex: 1,
+    marginRight: theme.spacing.sm,
+  },
   newsHeadline: {
     ...theme.typography.body,
     color: theme.colors.text,
@@ -561,6 +596,9 @@ const styles = StyleSheet.create({
   newsDate: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
+  },
+  newsIcon: {
+    marginLeft: theme.spacing.sm,
   },
   insightCard: {
     marginBottom: theme.spacing.md,

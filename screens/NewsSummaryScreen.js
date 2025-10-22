@@ -10,6 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../utils/theme';
 import { getTimeUntilMarketOpen, isMarketOpen, formatPercentage } from '../utils/formatters';
 import { getDailyMarketSummary, getMarketAdvice } from '../services/perplexityAPI';
@@ -19,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function NewsSummaryScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [marketHeadlines, setMarketHeadlines] = useState([]);
   const [marketHeadlinesMessage, setMarketHeadlinesMessage] = useState('');
   const [marketAdvice, setMarketAdvice] = useState('');
@@ -272,7 +274,7 @@ export default function NewsSummaryScreen() {
         />
       }
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + theme.spacing.md }]}>
         <View>
           <Text style={styles.headerTitle}>Market Overview</Text>
           <Text style={styles.headerDate}>
@@ -546,7 +548,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     backgroundColor: theme.colors.cardBackground,

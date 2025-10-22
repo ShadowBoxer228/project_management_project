@@ -8,6 +8,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 
 import StockListScreen from './screens/StockListScreen.js';
@@ -115,59 +116,61 @@ export default function App() {
   const navigationRef = useNavigationContainerRef();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <PaperProvider theme={theme}>
-        <NavigationContainer
-          ref={navigationRef}
-          onStateChange={() => {
-            if (__DEV__) {
-              const current = navigationRef.getCurrentRoute();
-              debugLog('Navigation state changed', {
-                name: current?.name,
-                params: current?.params,
-              });
-            }
-          }}
-        >
-          {__DEV__ && debugLog('NavigationContainer mounted')}
-          <StatusBar style="dark" />
-          <Tab.Navigator
-            screenOptions={({ route }) => ({
-              tabBarIcon: ({ focused, color, size }) => {
-                if (__DEV__) {
-                  debugLog('Render tab icon', { route: route.name, focused });
-                }
-                let iconName;
-                if (route.name === 'Stocks') {
-                  iconName = focused ? 'trending-up' : 'trending-up-outline';
-                } else if (route.name === 'News') {
-                  iconName = focused ? 'newspaper' : 'newspaper-outline';
-                }
-                return <Ionicons name={iconName} size={size} color={color} />;
-              },
-              tabBarActiveTintColor: theme.colors.primary,
-              tabBarInactiveTintColor: theme.colors.textSecondary,
-              tabBarStyle: {
-                backgroundColor: theme.colors.background,
-                borderTopColor: theme.colors.border,
-                borderTopWidth: 1,
-                paddingTop: 5,
-                height: 85,
-                paddingBottom: 30,
-              },
-              tabBarLabelStyle: {
-                fontSize: 11,
-                fontWeight: '600',
-                marginTop: -5,
-              },
-              headerShown: false,
-            })}
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <PaperProvider theme={theme}>
+          <NavigationContainer
+            ref={navigationRef}
+            onStateChange={() => {
+              if (__DEV__) {
+                const current = navigationRef.getCurrentRoute();
+                debugLog('Navigation state changed', {
+                  name: current?.name,
+                  params: current?.params,
+                });
+              }
+            }}
           >
-            <Tab.Screen name="Stocks" component={StocksStack} />
-            <Tab.Screen name="News" component={NewsSummaryScreen} />
-          </Tab.Navigator>
-        </NavigationContainer>
-      </PaperProvider>
-    </GestureHandlerRootView>
+            {__DEV__ && debugLog('NavigationContainer mounted')}
+            <StatusBar style="dark" />
+            <Tab.Navigator
+              screenOptions={({ route }) => ({
+                tabBarIcon: ({ focused, color, size }) => {
+                  if (__DEV__) {
+                    debugLog('Render tab icon', { route: route.name, focused });
+                  }
+                  let iconName;
+                  if (route.name === 'Stocks') {
+                    iconName = focused ? 'trending-up' : 'trending-up-outline';
+                  } else if (route.name === 'News') {
+                    iconName = focused ? 'newspaper' : 'newspaper-outline';
+                  }
+                  return <Ionicons name={iconName} size={size} color={color} />;
+                },
+                tabBarActiveTintColor: theme.colors.primary,
+                tabBarInactiveTintColor: theme.colors.textSecondary,
+                tabBarStyle: {
+                  backgroundColor: theme.colors.background,
+                  borderTopColor: theme.colors.border,
+                  borderTopWidth: 1,
+                  paddingTop: 5,
+                  height: 85,
+                  paddingBottom: 30,
+                },
+                tabBarLabelStyle: {
+                  fontSize: 11,
+                  fontWeight: '600',
+                  marginTop: -5,
+                },
+                headerShown: false,
+              })}
+            >
+              <Tab.Screen name="Stocks" component={StocksStack} />
+              <Tab.Screen name="News" component={NewsSummaryScreen} />
+            </Tab.Navigator>
+          </NavigationContainer>
+        </PaperProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

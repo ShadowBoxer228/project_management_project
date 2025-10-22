@@ -190,30 +190,17 @@ export const getDailyMarketSummary = async () => {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  const queries = [
-    `pre-market stock market news and futures overview for ${todayIso}`,
-    `major economic events impacting markets on ${todayIso}`,
-    `key earnings announcements for ${todayIso}`,
-  ];
-
-  const results = await executeSearch({
-    query: queries,
-    max_results: 5,
-    max_tokens_per_page: 1024,
-    country: 'US',
-  });
-
-  if (!results) {
-    const completionResponse = await executeCompletion({
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a financial analyst providing concise market updates.',
-        },
-        {
-          role: 'user',
-          content: `Provide 5-7 concise bullet points about US pre-market conditions for ${todayIso}.
+  // Use Chat Completions API directly for consistent, formatted results
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a financial analyst providing concise market updates.',
+      },
+      {
+        role: 'user',
+        content: `Provide 5-7 concise bullet points about US pre-market conditions for ${todayIso}.
 
 Each bullet point should be 1-2 sentences covering:
 - Market sentiment and index movements
@@ -223,25 +210,18 @@ Each bullet point should be 1-2 sentences covering:
 - Significant company news or events
 
 Format as bullet points with a colon separating topic from details (e.g., "Market Sentiment: Indices are up 0.5% in pre-market trading.")`,
-        },
-      ],
-      maxTokens: 600,
-    });
+      },
+    ],
+    maxTokens: 600,
+  });
 
-    if (!completionResponse || !completionResponse.content) {
-      return null;
-    }
-
-    const fallbackHeadlines = mapSummaryTextToHeadlines(completionResponse.content);
-    setCachedData(cacheKey, fallbackHeadlines);
-    return fallbackHeadlines;
+  if (!completionResponse || !completionResponse.content) {
+    return null;
   }
 
-  const flattened = Array.isArray(results[0]) ? results.flat() : results;
-  const uniqueResults = dedupeResults(flattened);
-
-  setCachedData(cacheKey, uniqueResults);
-  return uniqueResults;
+  const headlines = mapSummaryTextToHeadlines(completionResponse.content);
+  setCachedData(cacheKey, headlines);
+  return headlines;
 };
 
 export const getMarketAdvice = async () => {
