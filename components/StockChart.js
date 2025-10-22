@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { theme } from '../utils/theme';
 import { getDailyData, getIntradayData } from '../services/alphaVantageAPI';

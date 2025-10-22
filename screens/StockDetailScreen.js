@@ -30,6 +30,20 @@ const { width } = Dimensions.get('window');
 
 const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
+const parseNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.replace(/,/g, '').trim();
+    if (normalized === '') return null;
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+};
+
 export default function StockDetailScreen({ route }) {
   const { symbol, name } = route.params;
   const [quote, setQuote] = useState(null);
@@ -42,42 +56,49 @@ export default function StockDetailScreen({ route }) {
   const [timeRange, setTimeRange] = useState('1D');
 
   useEffect(() => {
-    fetchStockData();
-  }, [symbol]);
+    let isMounted = true;
 
-  const fetchStockData = async () => {
-    setLoading(true);
-    try {
-      const [quoteData, financialsData, profileData, overviewData, newsData] =
-        await Promise.all([
+    const getDateString = (daysOffset) => {
+      const date = new Date();
+      date.setDate(date.getDate() + daysOffset);
+      return date.toISOString().split('T')[0];
+    };
+
+    const fetchStockData = async () => {
+      setLoading(true);
+      try {
+        const [quoteData, financialsData, profileData, overviewData, newsData] = await Promise.all([
           getQuote(symbol),
           getBasicFinancials(symbol),
           getCompanyProfile(symbol),
           getCompanyOverview(symbol),
-          getCompanyNews(
-            symbol,
-            getDateString(-7),
-            getDateString(0)
-          ),
+          getCompanyNews(symbol, getDateString(-7), getDateString(0)),
         ]);
 
-      setQuote(quoteData);
-      setFinancials(financialsData);
-      setProfile(profileData);
-      setOverview(overviewData);
-      setNews(newsData.slice(0, 10));
-    } catch (error) {
-      console.error('Error fetching stock data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (!isMounted) return;
 
-  const getDateString = (daysOffset) => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysOffset);
-    return date.toISOString().split('T')[0];
-  };
+        setQuote(quoteData);
+        setFinancials(financialsData);
+        setProfile(profileData);
+        setOverview(overviewData);
+        setNews(newsData.slice(0, 10));
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error fetching stock data:', error);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchStockData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [symbol]);
 
   const currentPrice = quote?.c || 0;
   const change = quote?.d || 0;
@@ -85,13 +106,15 @@ export default function StockDetailScreen({ route }) {
   const isPositive = change >= 0;
 
   const metrics = financials?.metric || {};
-  const marketCap = overview?.MarketCapitalization || metrics['marketCapitalization'];
-  const peRatio = overview?.PERatio || metrics['peBasicExclExtraTTM'];
-  const eps = overview?.EPS || metrics['epsBasicExclExtraItemsTTM'];
-  const dividendYield = overview?.DividendYield || metrics['dividendYieldIndicatedAnnual'];
-  const week52High = overview?.['52WeekHigh'] || metrics['52WeekHigh'];
-  const week52Low = overview?.['52WeekLow'] || metrics['52WeekLow'];
-  const beta = overview?.Beta || metrics['beta'];
+  const marketCap = parseNumber(overview?.MarketCapitalization ?? metrics['marketCapitalization']);
+  const peRatio = parseNumber(overview?.PERatio ?? metrics['peBasicExclExtraTTM']);
+  const eps = parseNumber(overview?.EPS ?? metrics['epsBasicExclExtraItemsTTM']);
+  const dividendYield = parseNumber(
+    overview?.DividendYield ?? metrics['dividendYieldIndicatedAnnual']
+  );
+  const week52High = parseNumber(overview?.['52WeekHigh'] ?? metrics['52WeekHigh']);
+  const week52Low = parseNumber(overview?.['52WeekLow'] ?? metrics['52WeekLow']);
+  const beta = parseNumber(overview?.Beta ?? metrics['beta']);
 
   if (loading) {
     return (
@@ -199,15 +222,21 @@ export default function StockDetailScreen({ route }) {
         <Text style={styles.sectionTitle}>Key Statistics</Text>
         <View style={styles.metricsGrid}>
           <MetricItem label="Market Cap" value={formatLargeNumber(marketCap)} />
-          <MetricItem label="P/E Ratio" value={peRatio ? peRatio.toFixed(2) : 'N/A'} />
-          <MetricItem label="EPS" value={eps ? formatCurrency(eps) : 'N/A'} />
+          <MetricItem label="P/E Ratio" value={peRatio !== null ? peRatio.toFixed(2) : 'N/A'} />
+          <MetricItem label="EPS" value={eps !== null ? formatCurrency(eps) : 'N/A'} />
           <MetricItem
             label="Dividend Yield"
-            value={dividendYield ? `${(dividendYield * 100).toFixed(2)}%` : 'N/A'}
+            value={dividendYield !== null ? `${(dividendYield * 100).toFixed(2)}%` : 'N/A'}
           />
-          <MetricItem label="52W High" value={week52High ? formatCurrency(week52High) : 'N/A'} />
-          <MetricItem label="52W Low" value={week52Low ? formatCurrency(week52Low) : 'N/A'} />
-          <MetricItem label="Beta" value={beta ? beta.toFixed(2) : 'N/A'} />
+          <MetricItem
+            label="52W High"
+            value={week52High !== null ? formatCurrency(week52High) : 'N/A'}
+          />
+          <MetricItem
+            label="52W Low"
+            value={week52Low !== null ? formatCurrency(week52Low) : 'N/A'}
+          />
+          <MetricItem label="Beta" value={beta !== null ? beta.toFixed(2) : 'N/A'} />
           <MetricItem label="Volume" value={formatVolume(quote?.v)} />
         </View>
       </View>
