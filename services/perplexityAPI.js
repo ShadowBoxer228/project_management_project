@@ -69,12 +69,25 @@ export const getDailyMarketSummary = async () => {
     return null;
   }
 
-  const flattenedResults = Array.isArray(results[0])
-    ? results.flat()
-    : results;
+  const flattenedResults = Array.isArray(results[0]) ? results.flat() : results;
 
-  setCachedData(cacheKey, flattenedResults);
-  return flattenedResults;
+  const uniqueResults = [];
+  const seenKeys = new Set();
+
+  flattenedResults.forEach((item) => {
+    if (!item || typeof item !== 'object') {
+      return;
+    }
+    const key = item.url || `${item.title || 'untitled'}-${item.date || ''}`;
+    if (seenKeys.has(key)) {
+      return;
+    }
+    seenKeys.add(key);
+    uniqueResults.push(item);
+  });
+
+  setCachedData(cacheKey, uniqueResults);
+  return uniqueResults;
 };
 
 export const getStockAnalysis = async (symbol, companyName) => {
@@ -101,6 +114,21 @@ export const getStockAnalysis = async (symbol, companyName) => {
     return null;
   }
 
-  setCachedData(cacheKey, results);
-  return results;
+  const uniqueResults = [];
+  const seenKeys = new Set();
+
+  results.forEach((item) => {
+    if (!item || typeof item !== 'object') {
+      return;
+    }
+    const key = item.url || `${item.title || 'untitled'}-${item.date || ''}`;
+    if (seenKeys.has(key)) {
+      return;
+    }
+    seenKeys.add(key);
+    uniqueResults.push(item);
+  });
+
+  setCachedData(cacheKey, uniqueResults);
+  return uniqueResults;
 };
