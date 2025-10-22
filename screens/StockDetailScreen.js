@@ -221,7 +221,12 @@ export default function StockDetailScreen({ route }) {
         <View style={styles.chartTypeButtons}>
           <TouchableOpacity
             style={[styles.chartTypeButton, chartType === 'line' && styles.chartTypeButtonActive]}
-            onPress={() => setChartType('line')}
+            onPress={() => {
+              if (__DEV__) {
+                debugLog('Change chart type', { symbol, type: 'line' });
+              }
+              setChartType('line');
+            }}
           >
             <Text
               style={[
@@ -237,7 +242,12 @@ export default function StockDetailScreen({ route }) {
               styles.chartTypeButton,
               chartType === 'candle' && styles.chartTypeButtonActive,
             ]}
-            onPress={() => setChartType('candle')}
+            onPress={() => {
+              if (__DEV__) {
+                debugLog('Change chart type', { symbol, type: 'candle' });
+              }
+              setChartType('candle');
+            }}
           >
             <Text
               style={[
@@ -260,14 +270,19 @@ export default function StockDetailScreen({ route }) {
         contentContainerStyle={styles.timeRangeContent}
       >
         {TIME_RANGES.map((range) => (
-          <TouchableOpacity
-            key={range}
-            style={[
-              styles.timeRangeButton,
-              timeRange === range && styles.timeRangeButtonActive,
-            ]}
-            onPress={() => setTimeRange(range)}
-          >
+            <TouchableOpacity
+              key={range}
+              style={[
+                styles.timeRangeButton,
+                timeRange === range && styles.timeRangeButtonActive,
+              ]}
+              onPress={() => {
+                if (__DEV__) {
+                  debugLog('Change time range', { symbol, range });
+                }
+                setTimeRange(range);
+              }}
+            >
             <Text
               style={[
                 styles.timeRangeButtonText,

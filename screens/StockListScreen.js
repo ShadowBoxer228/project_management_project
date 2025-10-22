@@ -15,6 +15,13 @@ import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { getQuote } from '../services/finnhubAPI';
 import sp100Data from '../data/sp100.json';
 
+const debugLog = (...args) => {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[StockList]', ...args);
+  }
+};
+
 const StockListItem = ({ item, index, onPress }) => {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,10 +30,15 @@ const StockListItem = ({ item, index, onPress }) => {
     let isMounted = true;
 
     const fetchQuote = async () => {
+      if (__DEV__) {
+        debugLog('Fetching quote', { symbol: item.symbol, index });
+      }
       setLoading(true);
       try {
         const data = await getQuote(item.symbol);
-        console.log(`${item.symbol} (${index + 1}/100) loaded:`, data);
+        if (__DEV__) {
+          debugLog('Quote response', { symbol: item.symbol, data });
+        }
         if (isMounted && data) {
           setQuote(data);
         }
@@ -47,6 +59,9 @@ const StockListItem = ({ item, index, onPress }) => {
     return () => {
       isMounted = false;
       clearTimeout(timer);
+      if (__DEV__) {
+        debugLog('Cleanup quote timer', { symbol: item.symbol });
+      }
     };
   }, [item.symbol, index]);
 
@@ -58,7 +73,15 @@ const StockListItem = ({ item, index, onPress }) => {
   const formattedChange = changePercent !== null ? formatPercentage(changePercent) : 'N/A';
 
   return (
-    <TouchableOpacity style={styles.stockItem} onPress={() => onPress(item)}>
+    <TouchableOpacity
+      style={styles.stockItem}
+      onPress={() => {
+        if (__DEV__) {
+          debugLog('Press stock', { symbol: item.symbol, index });
+        }
+        onPress(item);
+      }}
+    >
       <View style={styles.stockInfo}>
         <Text style={styles.symbol}>{item.symbol}</Text>
         <Text style={styles.companyName} numberOfLines={1}>
@@ -130,6 +153,9 @@ export default function StockListScreen({ navigation }) {
   };
 
   const handleStockPress = (stock) => {
+    if (__DEV__) {
+      debugLog('Navigate to StockDetail', { symbol: stock.symbol, name: stock.name });
+    }
     navigation.navigate('StockDetail', {
       symbol: stock.symbol,
       name: stock.name,

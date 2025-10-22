@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Provider as PaperProvider } from 'react-native-paper';
@@ -14,10 +14,21 @@ import StockDetailScreen from './screens/StockDetailScreen.js';
 import NewsSummaryScreen from './screens/NewsSummaryScreen.js';
 import { theme } from './utils/theme';
 
+const debugLog = (...args) => {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[AppNavigator]', ...args);
+  }
+};
+
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 function StocksStack() {
+  if (__DEV__) {
+    debugLog('Render StocksStack');
+  }
+
   return (
     <Stack.Navigator
       screenOptions={{
@@ -53,14 +64,35 @@ function StocksStack() {
 }
 
 export default function App() {
+  if (__DEV__) {
+    debugLog('Render App component');
+  }
+
+  const navigationRef = useNavigationContainerRef();
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider theme={theme}>
-        <NavigationContainer>
+        <NavigationContainer
+          ref={navigationRef}
+          onStateChange={() => {
+            if (__DEV__) {
+              const current = navigationRef.getCurrentRoute();
+              debugLog('Navigation state changed', {
+                name: current?.name,
+                params: current?.params,
+              });
+            }
+          }}
+        >
+          {__DEV__ && debugLog('NavigationContainer mounted')}
           <StatusBar style="dark" />
           <Tab.Navigator
             screenOptions={({ route }) => ({
               tabBarIcon: ({ focused, color, size }) => {
+                if (__DEV__) {
+                  debugLog('Render tab icon', { route: route.name, focused });
+                }
                 let iconName;
                 if (route.name === 'Stocks') {
                   iconName = focused ? 'trending-up' : 'trending-up-outline';
