@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { theme } from '../utils/theme';
@@ -7,9 +7,48 @@ import { generateEnhancedChartData } from '../services/mockChartData';
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 32;
 
+const sanitizePoint = (point) => {
+  if (!point) return null;
+
+  const timestamp = Number(point.timestamp);
+  const value = Number(point.value);
+  const open = Number(point.open);
+  const high = Number(point.high);
+  const low = Number(point.low);
+  const close = Number(point.close);
+
+  if (
+    !Number.isFinite(timestamp) ||
+    !Number.isFinite(value) ||
+    !Number.isFinite(open) ||
+    !Number.isFinite(high) ||
+    !Number.isFinite(low) ||
+    !Number.isFinite(close)
+  ) {
+    return null;
+  }
+
+  const adjustedHigh = Math.max(high, open, close, low);
+  const adjustedLow = Math.min(low, open, close, high);
+
+  if (!Number.isFinite(adjustedHigh) || !Number.isFinite(adjustedLow)) {
+    return null;
+  }
+
+  return {
+    timestamp,
+    value,
+    open,
+    high: adjustedHigh,
+    low: adjustedLow,
+    close,
+  };
+};
+
 export default function StockChart({ symbol, chartType = 'line', timeRange = '1D' }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let isActive = true;
@@ -18,35 +57,35 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
       if (!isActive) return;
 
       setLoading(true);
+      setError(null);
 
-      // Generate realistic mock data immediately
-      // This ensures charts always work, even without API access
       try {
         const chartData = generateEnhancedChartData(symbol, timeRange);
 
-        // Validate data structure
         if (!chartData || chartData.length === 0) {
           throw new Error('No chart data generated');
         }
 
-        // Ensure all values are valid numbers
-        const validatedData = chartData.map(point => ({
-          timestamp: point.timestamp,
-          value: Number(point.value) || 0,
-          open: Number(point.open) || 0,
-          high: Number(point.high) || 0,
-          low: Number(point.low) || 0,
-          close: Number(point.close) || 0,
-        }));
+        let validatedData = chartData
+          .map(sanitizePoint)
+          .filter(Boolean)
+          .sort((a, b) => a.timestamp - b.timestamp);
+
+        if (!validatedData.length) {
+          throw new Error('Invalid chart data after sanitization');
+        }
+
+        if (validatedData.length > 600) {
+          validatedData = validatedData.slice(validatedData.length - 600);
+        }
 
         if (isActive) {
           setData(validatedData);
-          console.log(`Chart loaded for ${symbol} (${timeRange}): ${validatedData.length} points`);
         }
-      } catch (error) {
-        console.error(`Error generating chart for ${symbol}:`, error);
-        // Set empty data to show error message
+      } catch (err) {
+        console.error(`Error generating chart for ${symbol}:`, err);
         if (isActive) {
+          setError('Unable to load chart data');
           setData([]);
         }
       } finally {
@@ -77,15 +116,45 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
   if (data.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No chart data available</Text>
+        <Text style={styles.emptyText}>{error || 'No chart data available'}</Text>
       </View>
     );
   }
 
-  const firstValue = data[0]?.value || 0;
-  const lastValue = data[data.length - 1]?.value || 0;
-  const isPositive = lastValue >= firstValue;
-  const changePercent = ((lastValue - firstValue) / firstValue) * 100;
+  const { changePercent, isPositive } = useMemo(() => {
+    const startValue = data[0]?.value;
+    const endValue = data[data.length - 1]?.value ?? startValue;
+
+    const safeStart = Number.isFinite(startValue) && startValue !== 0 ? startValue : null;
+    const safeEnd = Number.isFinite(endValue) ? endValue : safeStart ?? 0;
+
+    const percent =
+      safeStart !== null ? ((safeEnd - safeStart) / safeStart) * 100 : 0;
+
+    return {
+      changePercent: Number.isFinite(percent) ? percent : 0,
+      isPositive: safeEnd >= (safeStart ?? safeEnd),
+    };
+  }, [data]);
+
+  const formatPrice = (value) => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      return '$0.00';
+    }
+    return `$${numericValue.toFixed(2)}`;
+  };
+
+  const formatTimestamp = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    if (timeRange === '1D') {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <View style={styles.container}>
@@ -109,23 +178,8 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
               />
             </LineChart.CursorCrosshair>
           </LineChart>
-          <LineChart.PriceText
-            style={styles.priceText}
-            format={({ value }) => {
-              const price = typeof value === 'number' ? value : parseFloat(value) || 0;
-              return `$${price.toFixed(2)}`;
-            }}
-          />
-          <LineChart.DatetimeText
-            style={styles.dateText}
-            format={({ value }) => {
-              const date = new Date(value);
-              if (timeRange === '1D') {
-                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-              }
-              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }}
-          />
+          <LineChart.PriceText style={styles.priceText} format={({ value }) => formatPrice(value)} />
+          <LineChart.DatetimeText style={styles.dateText} format={({ value }) => formatTimestamp(value)} />
         </LineChart.Provider>
       ) : (
         <CandlestickChart.Provider data={data}>
@@ -143,20 +197,11 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           </CandlestickChart>
           <CandlestickChart.PriceText
             style={styles.priceText}
-            format={({ value }) => {
-              const price = typeof value === 'number' ? value : parseFloat(value) || 0;
-              return `$${price.toFixed(2)}`;
-            }}
+            format={({ value }) => formatPrice(value)}
           />
           <CandlestickChart.DatetimeText
             style={styles.dateText}
-            format={({ value }) => {
-              const date = new Date(value);
-              if (timeRange === '1D') {
-                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-              }
-              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }}
+            format={({ value }) => formatTimestamp(value)}
           />
         </CandlestickChart.Provider>
       )}

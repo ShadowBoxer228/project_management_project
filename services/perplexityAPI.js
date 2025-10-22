@@ -19,104 +19,6 @@ const setCachedData = (key, data) => {
   cache.set(key, { data, timestamp: Date.now() });
 };
 
-const MARKDOWN_TABLE_LINE_REGEX = /^\s*\|.*\|\s*$/;
-const MARKDOWN_DIVIDER_REGEX = /^\s*[-|]{3,}\s*$/;
-const MARKDOWN_HEADING_REGEX = /^\s*#{1,6}\s+/;
-const LEADING_BULLET_REGEX = /^[-*•]\s+/;
-const MIN_SNIPPET_LENGTH = 60;
-const MIN_SNIPPET_WORDS = 12;
-const MAX_SNIPPET_LENGTH = 320;
-
-const cleanSnippetText = (text) => {
-  if (!text || typeof text !== 'string') return '';
-
-  const withoutLinks = text.replace(/\[[^\]]+\]\(([^)]+)\)/g, '$1');
-  const withoutMarkup = withoutLinks
-    .replace(/\*\*/g, '')
-    .replace(/\[[\d,\s]+\]/g, '')
-    .replace(/\r\n/g, '\n');
-
-  const filteredLines = withoutMarkup
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(
-      (line) =>
-        line &&
-        !MARKDOWN_TABLE_LINE_REGEX.test(line) &&
-        !MARKDOWN_DIVIDER_REGEX.test(line) &&
-        !MARKDOWN_HEADING_REGEX.test(line)
-    )
-    .map((line) => line.replace(LEADING_BULLET_REGEX, '').trim())
-    .filter(Boolean);
-
-  const consolidated = filteredLines.join(' ').replace(/\s+/g, ' ').trim();
-
-  if (consolidated.length > MAX_SNIPPET_LENGTH) {
-    return `${consolidated.slice(0, MAX_SNIPPET_LENGTH).trim()}…`;
-  }
-
-  return consolidated;
-};
-
-const extractSnippetCandidate = (item) => {
-  if (!item || typeof item !== 'object') return '';
-
-  const candidates = [
-    item.snippet,
-    item.summary,
-    item.content,
-    Array.isArray(item.highlights) ? item.highlights.join(' ') : '',
-  ];
-
-  return candidates.find((candidate) => typeof candidate === 'string' && candidate.trim()) || '';
-};
-
-const isReadableSnippet = (snippet) => {
-  if (!snippet) return false;
-  const wordCount = snippet.split(/\s+/).filter(Boolean).length;
-  return snippet.length >= MIN_SNIPPET_LENGTH && wordCount >= MIN_SNIPPET_WORDS;
-};
-
-const extractPublishedDate = (item) => {
-  if (!item || typeof item !== 'object') return new Date().toISOString();
-  const candidates = [
-    item.date,
-    item.published_at,
-    item.publishedAt,
-    item.timestamp,
-    item.metadata?.published_at,
-    item.metadata?.pubDate,
-  ];
-
-  return candidates.find((value) => typeof value === 'string' && value.trim()) || new Date().toISOString();
-};
-
-const normalizeSearchResultItem = (item) => {
-  if (!item || typeof item !== 'object') return null;
-
-  const snippetCandidate = extractSnippetCandidate(item);
-  const cleanedSnippet = cleanSnippetText(snippetCandidate);
-
-  if (!isReadableSnippet(cleanedSnippet)) {
-    return null;
-  }
-
-  const rawTitle = typeof item.title === 'string' ? item.title.trim() : '';
-  const fallbackTitle = cleanedSnippet.split(/[.!?]/).find((segment) => segment.trim().length >= 20);
-  const title = rawTitle || (fallbackTitle ? `${fallbackTitle.trim()}.` : '');
-
-  if (!title) {
-    return null;
-  }
-
-  return {
-    title,
-    snippet: cleanedSnippet,
-    url: typeof item.url === 'string' && item.url.trim() ? item.url : null,
-    date: extractPublishedDate(item),
-  };
-};
-
 const executeSearch = async (payload) => {
   try {
     const response = await fetch(BASE_URL, {
@@ -288,7 +190,20 @@ export const getDailyMarketSummary = async () => {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  const getFallbackHeadlines = async () => {
+  const queries = [
+    `pre-market stock market news and futures overview for ${todayIso}`,
+    `major economic events impacting markets on ${todayIso}`,
+    `key earnings announcements for ${todayIso}`,
+  ];
+
+  const results = await executeSearch({
+    query: queries,
+    max_results: 5,
+    max_tokens_per_page: 1024,
+    country: 'US',
+  });
+
+  if (!results) {
     const completionResponse = await executeCompletion({
       messages: [
         {
@@ -317,51 +232,16 @@ Format as bullet points with a colon separating topic from details (e.g., "Marke
       return null;
     }
 
-    return mapSummaryTextToHeadlines(completionResponse.content);
-  };
-
-  const queries = [
-    `pre-market stock market news and futures overview for ${todayIso}`,
-    `major economic events impacting markets on ${todayIso}`,
-    `key earnings announcements for ${todayIso}`,
-  ];
-
-  const results = await executeSearch({
-    query: queries,
-    max_results: 5,
-    max_tokens_per_page: 1024,
-    country: 'US',
-  });
-
-  if (!results) {
-    const fallbackHeadlines = await getFallbackHeadlines();
-    if (!fallbackHeadlines) {
-      return null;
-    }
+    const fallbackHeadlines = mapSummaryTextToHeadlines(completionResponse.content);
     setCachedData(cacheKey, fallbackHeadlines);
     return fallbackHeadlines;
   }
 
   const flattened = Array.isArray(results[0]) ? results.flat() : results;
   const uniqueResults = dedupeResults(flattened);
-  const normalizedResults = uniqueResults
-    .map((item) => normalizeSearchResultItem(item))
-    .filter(Boolean);
 
-  if (normalizedResults.length >= 3) {
-    setCachedData(cacheKey, normalizedResults);
-    return normalizedResults;
-  }
-
-  const fallbackHeadlines = await getFallbackHeadlines();
-  if (fallbackHeadlines && fallbackHeadlines.length) {
-    setCachedData(cacheKey, fallbackHeadlines);
-    return fallbackHeadlines;
-  }
-
-  const fallbackResults = normalizedResults.length ? normalizedResults : uniqueResults;
-  setCachedData(cacheKey, fallbackResults);
-  return fallbackResults;
+  setCachedData(cacheKey, uniqueResults);
+  return uniqueResults;
 };
 
 export const getMarketAdvice = async () => {
