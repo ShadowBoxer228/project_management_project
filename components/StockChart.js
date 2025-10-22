@@ -122,9 +122,17 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
     );
   }
 
-  const firstValue = data[0]?.value || 0;
-  const lastValue = data[data.length - 1]?.value || 0;
+  const firstValue = Number(data[0]?.value ?? 0);
+  const lastValue = Number(data[data.length - 1]?.value ?? 0);
   const isPositive = lastValue >= firstValue;
+
+  const formatPrice = (rawValue) => {
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) {
+      return '$0.00';
+    }
+    return `$${numericValue.toFixed(2)}`;
+  };
 
   return (
     <View style={styles.container}>
@@ -139,10 +147,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
               />
             </LineChart.CursorCrosshair>
           </LineChart>
-          <LineChart.PriceText
-            style={styles.priceText}
-            format={({ value }) => `$${value.toFixed(2)}`}
-          />
+          <LineChart.PriceText style={styles.priceText} format={({ value }) => formatPrice(value)} />
           <LineChart.DatetimeText style={styles.dateText} />
         </LineChart.Provider>
       ) : (
@@ -161,7 +166,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           </CandlestickChart>
           <CandlestickChart.PriceText
             style={styles.priceText}
-            format={({ value }) => `$${value.toFixed(2)}`}
+            format={({ value }) => formatPrice(value)}
           />
           <CandlestickChart.DatetimeText style={styles.dateText} />
         </CandlestickChart.Provider>

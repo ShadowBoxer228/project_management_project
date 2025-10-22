@@ -1,5 +1,5 @@
-const PERPLEXITY_API_KEY = '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';
-const BASE_URL = 'https://api.perplexity.ai/chat/completions';
+const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY || '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';
+const BASE_URL = 'https://api.perplexity.ai/search';
 
 // Cache for daily summary (24 hour cache)
 const cache = new Map();
@@ -17,79 +17,64 @@ const setCachedData = (key, data) => {
   cache.set(key, { data, timestamp: Date.now() });
 };
 
+const executeSearch = async (payload) => {
+  try {
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Perplexity Search API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: data?.error || 'Unknown error',
+      });
+      return null;
+    }
+
+    return data?.results || [];
+  } catch (error) {
+    console.error('Error executing Perplexity search:', error);
+    return null;
+  }
+};
+
 export const getDailyMarketSummary = async () => {
   const today = new Date().toISOString().split('T')[0];
   const cacheKey = `daily_summary_${today}`;
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  try {
-    const response = await fetch(BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'sonar',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a financial analyst providing concise, professional market analysis. Focus on facts and actionable insights without emojis or unnecessary formatting.',
-          },
-          {
-            role: 'user',
-            content: `Provide a comprehensive pre-market analysis for ${new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}. Include:
+  const queries = [
+    `pre-market stock market news and futures overview for ${today}`,
+    `major economic events impacting markets on ${today}`,
+    `key earnings announcements for ${today}`,
+  ];
 
-1. Overall Market Sentiment: Brief analysis of current market mood
-2. Major Economic Events Today: Any FOMC meetings, CPI reports, GDP data, or other significant economic releases
-3. Key Earnings Announcements: Major companies reporting today
-4. Geopolitical Developments: Any significant global events affecting markets
-5. Sector Highlights: Which sectors are expected to move and why
-6. Corporate News: Major mergers, acquisitions, or corporate developments
-7. Technical Market Analysis: Key support/resistance levels for major indices
-8. Final Trading Strategy: Actionable advice for today's trading session
+  const results = await executeSearch({
+    query: queries,
+    max_results: 5,
+    max_tokens_per_page: 1024,
+    country: 'US',
+  });
 
-Format the response with clear bullet points. Be concise and professional.`,
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 1500,
-      }),
-    });
-
-    // Log response status and body for debugging
-    console.log('Perplexity API Response Status:', response.status);
-    console.log('Perplexity API Response Headers:', Object.fromEntries(response.headers.entries()));
-    
-    const data = await response.json();
-    console.log('Perplexity API Response Body:', JSON.stringify(data, null, 2));
-
-    if (!response.ok) {
-      console.error('Perplexity API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: data.error || 'Unknown error'
-      });
-      return null;
-    }
-
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      const summary = data.choices[0].message.content;
-      setCachedData(cacheKey, summary);
-      return summary;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error fetching daily market summary:', error);
+  if (!results) {
     return null;
   }
+
+  const flattenedResults = Array.isArray(results[0])
+    ? results.flat()
+    : results;
+
+  setCachedData(cacheKey, flattenedResults);
+  return flattenedResults;
 };
 
 export const getStockAnalysis = async (symbol, companyName) => {
@@ -97,61 +82,25 @@ export const getStockAnalysis = async (symbol, companyName) => {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  try {
-    const response = await fetch(BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'sonar',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a financial analyst providing concise stock analysis. Focus on recent developments and actionable insights.',
-          },
-          {
-            role: 'user',
-            content: `Provide a brief analysis of ${companyName} (${symbol}) stock. Include:
-1. Recent significant news or developments (last 24-48 hours)
-2. Current market sentiment
-3. Key technical levels
-4. Brief recommendation (bullish/bearish/neutral) with rationale
+  const query = `${companyName || symbol} stock latest news, analyst commentary, technical outlook`;
 
-Keep it concise and professional with bullet points.`,
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 500,
-      }),
-    });
+  const results = await executeSearch({
+    query,
+    max_results: 5,
+    max_tokens_per_page: 1024,
+    search_domain_filter: [
+      'finance.yahoo.com',
+      'seekingalpha.com',
+      'marketwatch.com',
+      'bloomberg.com',
+      'cnbc.com',
+    ],
+  });
 
-    // Log response status and body for debugging
-    console.log('Perplexity Stock Analysis Response Status:', response.status);
-    console.log('Perplexity Stock Analysis Response Headers:', Object.fromEntries(response.headers.entries()));
-    
-    const data = await response.json();
-    console.log('Perplexity Stock Analysis Response Body:', JSON.stringify(data, null, 2));
-
-    if (!response.ok) {
-      console.error('Perplexity Stock Analysis API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: data.error || 'Unknown error'
-      });
-      return null;
-    }
-
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      const analysis = data.choices[0].message.content;
-      setCachedData(cacheKey, analysis);
-      return analysis;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error fetching stock analysis:', error);
+  if (!results) {
     return null;
   }
+
+  setCachedData(cacheKey, results);
+  return results;
 };
