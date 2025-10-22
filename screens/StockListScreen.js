@@ -26,7 +26,8 @@ const StockListItem = ({ item, onPress }) => {
       setLoading(true);
       try {
         const data = await getQuote(item.symbol);
-        if (isMounted) {
+        console.log(`${item.symbol} response:`, data);
+        if (isMounted && data) {
           setQuote(data);
         }
       } catch (error) {
@@ -38,10 +39,13 @@ const StockListItem = ({ item, onPress }) => {
       }
     };
 
-    fetchQuote();
+    // Add small random delay to prevent rate limiting
+    const delay = Math.floor(Math.random() * 500);
+    const timer = setTimeout(fetchQuote, delay);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
   }, [item.symbol]);
 

@@ -154,6 +154,70 @@ export default function NewsSummaryScreen() {
     });
   };
 
+  const renderTextWithStockLinks = (text) => {
+    if (!text) return null;
+
+    // Match stock symbols (1-5 uppercase letters, possibly with . for class shares)
+    const symbolRegex = /\b([A-Z]{1,5}(?:\.[A-Z])?)\b/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = symbolRegex.exec(text)) !== null) {
+      const symbol = match[1];
+      // Check if this is a valid stock symbol in our data
+      const isValidSymbol = sp100Data.some((stock) => stock.symbol === symbol);
+
+      if (isValidSymbol) {
+        // Add text before the symbol
+        if (match.index > lastIndex) {
+          parts.push({
+            type: 'text',
+            content: text.substring(lastIndex, match.index),
+          });
+        }
+        // Add the symbol as a link
+        parts.push({
+          type: 'link',
+          content: symbol,
+          symbol: symbol,
+        });
+        lastIndex = match.index + symbol.length;
+      }
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex),
+      });
+    }
+
+    if (parts.length === 0) {
+      return <Text style={styles.headlineSnippet} numberOfLines={3}>{text}</Text>;
+    }
+
+    return (
+      <Text style={styles.headlineSnippet} numberOfLines={3}>
+        {parts.map((part, idx) => {
+          if (part.type === 'link') {
+            return (
+              <Text
+                key={idx}
+                style={styles.stockSymbolLink}
+                onPress={() => handleNavigateToStock(part.symbol)}
+              >
+                {part.content}
+              </Text>
+            );
+          }
+          return <Text key={idx}>{part.content}</Text>;
+        })}
+      </Text>
+    );
+  };
+
   const getEarningsChangeMeta = (symbol) => {
     const quote = earningsQuotes[symbol];
     if (!quote || typeof quote.dp !== 'number') {
@@ -228,14 +292,11 @@ export default function NewsSummaryScreen() {
                 key={`${item.url || item.title}-${index}`}
                 style={styles.headlineCard}
                 onPress={() => handleOpenLink(item.url)}
-                activeOpacity={0.85}
+                activeOpacity={item.url ? 0.85 : 1}
+                disabled={!item.url}
               >
                 <Text style={styles.headlineTitle}>{item.title}</Text>
-                {item.snippet ? (
-                  <Text style={styles.headlineSnippet} numberOfLines={3}>
-                    {item.snippet}
-                  </Text>
-                ) : null}
+                {item.snippet ? renderTextWithStockLinks(item.snippet) : null}
                 <View style={styles.headlineMeta}>
                   {item.url ? (
                     <Text style={styles.headlineSource}>{getSourceFromUrl(item.url)}</Text>
@@ -486,6 +547,12 @@ const styles = StyleSheet.create({
     ...theme.typography.small,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
+  },
+  stockSymbolLink: {
+    ...theme.typography.small,
+    color: theme.colors.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   headlineMeta: {
     flexDirection: 'row',

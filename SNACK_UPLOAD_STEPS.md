@@ -135,15 +135,20 @@ If you see errors, check:
 - Folder structure matches exactly
 - package.json is in root
 
-## Step 10: Test on Web
+## Step 10: Test on Web (Limited)
+
+⚠️ **IMPORTANT**: Web preview has CORS issues - stock prices will show "N/A"
 
 1. Click the **"Web"** button on the right side
 2. Wait for web preview to load
 3. You should see your app with two tabs: "Stocks" and "News"
 
-**Expected on first load**:
-- Stocks tab: List of 100 stocks loading prices
-- News tab: "Loading..." then market analysis appears
+**Expected on web preview**:
+- Stocks tab: List of 100 stocks - **prices will show "N/A"** (CORS blocking)
+- News tab: May not load (CORS blocking)
+- UI and navigation work fine
+
+**This is NORMAL on web!** Continue to Step 11 to test on mobile.
 
 ## Step 11: Test on Mobile (Recommended)
 

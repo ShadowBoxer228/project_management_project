@@ -77,12 +77,15 @@ utils/: 2 files
 data/: 1 file
 ```
 
-### Step 3: Scan QR Code
-- Install Expo Go on phone
+### Step 3: Test on Mobile (IMPORTANT!)
+- **Do NOT test on web preview** - APIs are blocked by CORS
+- Install Expo Go on your phone
 - Scan QR code in Snack
-- App loads instantly!
+- App loads instantly with real data!
 
 **Total Time: 5 minutes**
+
+⚠️ **IMPORTANT**: Stock prices will show "N/A" on web preview due to CORS. This is normal! Test on mobile device for real prices.
 
 ---
 

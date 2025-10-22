@@ -87,58 +87,59 @@ const mapSummaryTextToHeadlines = (summaryText) => {
   if (!summaryText) return null;
 
   const lines = summaryText.split('\n').map((line) => line.trim()).filter(Boolean);
-  if (!lines.length) {
-    return [
-      {
-        title: 'AI Market Overview',
-        snippet: summaryText,
-        date: new Date().toISOString(),
-      },
-    ];
-  }
+  if (!lines.length) return null;
 
   const headlines = [];
-  let currentTitle = null;
-  let currentSnippet = [];
 
+  // Process each line as a potential bullet point
   lines.forEach((line) => {
-    const titleMatch = line.match(/^\d+\.\s*(.+)/);
-    if (titleMatch) {
-      if (currentTitle) {
+    // Match numbered sections like "1) Title" or "1. Title"
+    const numberedMatch = line.match(/^(\d+)[.)\]]\s*\*?\*?([^:]+):?\s*(.*)$/);
+
+    if (numberedMatch) {
+      const title = numberedMatch[2].replace(/\*\*/g, '').trim();
+      const content = numberedMatch[3].trim();
+
+      headlines.push({
+        title: title,
+        snippet: content || null,
+        date: new Date().toISOString(),
+        url: null,
+      });
+    }
+    // Match bullet points starting with - or •
+    else if (line.match(/^[-•]\s*(.+)/)) {
+      const content = line.replace(/^[-•]\s*/, '').trim();
+      const parts = content.split(/:\s*/, 2);
+
+      if (parts.length > 1) {
         headlines.push({
-          title: currentTitle,
-          snippet: currentSnippet.join(' '),
+          title: parts[0].replace(/\*\*/g, '').trim(),
+          snippet: parts[1].trim(),
           date: new Date().toISOString(),
+          url: null,
+        });
+      } else {
+        headlines.push({
+          title: content.replace(/\*\*/g, '').trim(),
+          snippet: null,
+          date: new Date().toISOString(),
+          url: null,
         });
       }
-      currentTitle = titleMatch[1];
-      currentSnippet = [];
-    } else if (line.startsWith('-')) {
-      currentSnippet.push(line.replace(/^-\s*/, ''));
-    } else if (currentTitle) {
-      currentSnippet.push(line);
+    }
+    // If current line extends previous headline
+    else if (headlines.length > 0 && !line.match(/^#+\s/)) {
+      const last = headlines[headlines.length - 1];
+      if (last.snippet) {
+        last.snippet += ' ' + line;
+      } else {
+        last.snippet = line;
+      }
     }
   });
 
-  if (currentTitle) {
-    headlines.push({
-      title: currentTitle,
-      snippet: currentSnippet.join(' '),
-      date: new Date().toISOString(),
-    });
-  }
-
-  if (!headlines.length) {
-    return [
-      {
-        title: 'AI Market Overview',
-        snippet: summaryText,
-        date: new Date().toISOString(),
-      },
-    ];
-  }
-
-  return headlines.slice(0, 6);
+  return headlines.length > 0 ? headlines.slice(0, 6) : null;
 };
 
 const mapInsightTextToItems = (text, symbol, companyName) => {
