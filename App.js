@@ -8,6 +8,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 
 import StockListScreen from './screens/StockListScreen.js';
 import StockDetailScreen from './screens/StockDetailScreen.js';
@@ -23,6 +24,49 @@ const debugLog = (...args) => {
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+if (__DEV__) {
+  try {
+    if (configureReanimatedLogger) {
+      configureReanimatedLogger({
+        level: ReanimatedLogLevel.debug,
+        strict: false,
+      });
+      // eslint-disable-next-line no-console
+      console.log('[AppNavigator] Reanimated logger configured');
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('[AppNavigator] Failed to configure Reanimated logger', error);
+  }
+
+  if (global?.ErrorUtils?.getGlobalHandler) {
+    const defaultHandler = global.ErrorUtils.getGlobalHandler();
+    global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+      // eslint-disable-next-line no-console
+      console.error('[GlobalError]', {
+        message: error?.message,
+        stack: error?.stack,
+        isFatal,
+      });
+      if (defaultHandler) {
+        defaultHandler(error, isFatal);
+      }
+    });
+  }
+
+  const originalUnhandled = globalThis.onunhandledrejection;
+  globalThis.onunhandledrejection = (event) => {
+    // eslint-disable-next-line no-console
+    console.error('[UnhandledPromiseRejection]', {
+      reason: event?.reason,
+      promise: event?.promise,
+    });
+    if (typeof originalUnhandled === 'function') {
+      originalUnhandled(event);
+    }
+  };
+}
 
 function StocksStack() {
   if (__DEV__) {

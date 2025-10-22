@@ -1,5 +1,8 @@
 {
   "plugins": [
     "expo-font"
-  ]
+  ],
+  "ios": {
+    "bundleIdentifier": "com.anonymous.stock-market-analysis-app"
+  }
 }

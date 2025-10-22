@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
-import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
+import Svg, { Path, Rect, Line } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { generateEnhancedChartData } from '../services/mockChartData';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 32;
+const CHART_HEIGHT = 220;
 const debugLog = (...args) => {
   if (__DEV__) {
     // eslint-disable-next-line no-console
     console.log('[StockChart]', ...args);
   }
+};
+
+const formatPriceValue = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return '$0.00';
+  }
+  return `$${numericValue.toFixed(2)}`;
+};
+
+const formatTimestampValue = (timestamp, range) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  if (range === '1D') {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 const sanitizePoint = (point) => {
@@ -136,8 +156,86 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
     };
   }, [symbol, timeRange]);
 
+  const { linePath, areaPath, candlesticks, yDomain, latestValue } = React.useMemo(() => {
+    if (!data.length) {
+      return {
+        linePath: '',
+        areaPath: '',
+        candlesticks: [],
+        yDomain: { min: 0, max: 1 },
+        latestValue: null,
+      };
+    }
+
+    const values = data.map((point) => point.value);
+    const highValues = data.map((point) => point.high);
+    const lowValues = data.map((point) => point.low);
+
+    const minValue = Math.min(...lowValues, ...values);
+    const maxValue = Math.max(...highValues, ...values);
+    const valueRange = maxValue - minValue || 1;
+
+    const points = data.map((point, index) => {
+      const x = data.length === 1 ? CHART_WIDTH / 2 : (index / (data.length - 1)) * CHART_WIDTH;
+      const valueY =
+        CHART_HEIGHT - ((point.value - minValue) / valueRange) * CHART_HEIGHT;
+      const openY = CHART_HEIGHT - ((point.open - minValue) / valueRange) * CHART_HEIGHT;
+      const closeY = CHART_HEIGHT - ((point.close - minValue) / valueRange) * CHART_HEIGHT;
+      const highY = CHART_HEIGHT - ((point.high - minValue) / valueRange) * CHART_HEIGHT;
+      const lowY = CHART_HEIGHT - ((point.low - minValue) / valueRange) * CHART_HEIGHT;
+
+      return {
+        x,
+        valueY,
+        openY,
+        closeY,
+        highY,
+        lowY,
+        point,
+      };
+    });
+
+    const path = points.reduce((acc, current, index) => {
+      if (index === 0) {
+        return `M ${current.x.toFixed(2)} ${current.valueY.toFixed(2)}`;
+      }
+      return `${acc} L ${current.x.toFixed(2)} ${current.valueY.toFixed(2)}`;
+    }, '');
+
+    const area = `${path} L ${CHART_WIDTH.toFixed(2)} ${CHART_HEIGHT.toFixed(
+      2
+    )} L 0 ${CHART_HEIGHT.toFixed(2)} Z`;
+
+    const candleWidth = Math.max(3, CHART_WIDTH / Math.max(data.length, 12) * 0.6);
+    const candleData = points.map((p) => ({
+      x: p.x,
+      openY: p.openY,
+      closeY: p.closeY,
+      highY: p.highY,
+      lowY: p.lowY,
+      point: p.point,
+      isPositive: p.point.close >= p.point.open,
+      candleWidth,
+    }));
+
+    return {
+      linePath: path,
+      areaPath: area,
+      candlesticks: candleData,
+      yDomain: { min: minValue, max: maxValue },
+      latestValue: data[data.length - 1],
+    };
+  }, [data]);
+
   const { changePercent, isPositive } = getChangeMeta(data);
   debugLog('Render with stats', { symbol, timeRange, points: data.length, changePercent });
+
+  const latestPriceLabel = React.useMemo(() => {
+    if (!latestValue) return '';
+    const price = formatPriceValue(latestValue.value);
+    const formattedTime = formatTimestampValue(latestValue.timestamp, timeRange);
+    return `${price} • ${formattedTime}`;
+  }, [latestValue, timeRange]);
 
   if (loading) {
     return (
@@ -156,74 +254,60 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
     );
   }
 
-  const formatPrice = (value) => {
-    const numericValue = Number(value);
-    if (!Number.isFinite(numericValue)) {
-      return '$0.00';
-    }
-    return `$${numericValue.toFixed(2)}`;
-  };
-
-  const formatTimestamp = (value) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-    if (timeRange === '1D') {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    }
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.statsContainer}>
         <Text style={[styles.changeText, { color: isPositive ? theme.colors.success : theme.colors.error }]}>
           {isPositive ? '+' : ''}{changePercent.toFixed(2)}% {timeRange}
         </Text>
+        {latestPriceLabel ? <Text style={styles.priceLabel}>{latestPriceLabel}</Text> : null}
       </View>
 
-      {chartType === 'line' ? (
-        <LineChart.Provider data={data}>
-          <LineChart width={CHART_WIDTH} height={220}>
-            <LineChart.Path
-              color={isPositive ? theme.colors.success : theme.colors.error}
-              width={2}
-            />
-            <LineChart.CursorCrosshair>
-              <LineChart.Tooltip
-                textStyle={styles.tooltipText}
-                style={styles.tooltip}
+      {chartType === 'candle' ? (
+        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+          {candlesticks.map((candle, index) => (
+            <React.Fragment key={`${candle.point.timestamp}-${index}`}>
+              <Line
+                x1={candle.x.toFixed(2)}
+                y1={candle.highY.toFixed(2)}
+                x2={candle.x.toFixed(2)}
+                y2={candle.lowY.toFixed(2)}
+                stroke={candle.isPositive ? theme.colors.success : theme.colors.error}
+                strokeWidth={2}
               />
-            </LineChart.CursorCrosshair>
-          </LineChart>
-          <LineChart.PriceText style={styles.priceText} format={({ value }) => formatPrice(value)} />
-          <LineChart.DatetimeText style={styles.dateText} format={({ value }) => formatTimestamp(value)} />
-        </LineChart.Provider>
+              <Rect
+                x={(candle.x - candle.candleWidth / 2).toFixed(2)}
+                y={Math.min(candle.openY, candle.closeY).toFixed(2)}
+                width={candle.candleWidth.toFixed(2)}
+                height={Math.max(Math.abs(candle.closeY - candle.openY), 2).toFixed(2)}
+                fill={candle.isPositive ? theme.colors.success : theme.colors.error}
+                opacity={0.8}
+                rx={candle.candleWidth * 0.15}
+              />
+            </React.Fragment>
+          ))}
+        </Svg>
       ) : (
-        <CandlestickChart.Provider data={data}>
-          <CandlestickChart width={CHART_WIDTH} height={220}>
-            <CandlestickChart.Candles
-              positiveColor={theme.colors.success}
-              negativeColor={theme.colors.error}
-            />
-            <CandlestickChart.Crosshair>
-              <CandlestickChart.Tooltip
-                textStyle={styles.tooltipText}
-                style={styles.tooltip}
-              />
-            </CandlestickChart.Crosshair>
-          </CandlestickChart>
-          <CandlestickChart.PriceText
-            style={styles.priceText}
-            format={({ value }) => formatPrice(value)}
+        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+          <Path
+            d={areaPath}
+            fill={isPositive ? theme.colors.success + '22' : theme.colors.error + '22'}
           />
-          <CandlestickChart.DatetimeText
-            style={styles.dateText}
-            format={({ value }) => formatTimestamp(value)}
+          <Path
+            d={linePath}
+            stroke={isPositive ? theme.colors.success : theme.colors.error}
+            strokeWidth={2}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
-        </CandlestickChart.Provider>
+        </Svg>
       )}
+
+      <View style={styles.domainContainer}>
+        <Text style={styles.domainText}>{formatPriceValue(yDomain.max)}</Text>
+        <Text style={styles.domainText}>{formatPriceValue(yDomain.min)}</Text>
+      </View>
     </View>
   );
 }
@@ -261,24 +345,19 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     fontWeight: '600',
   },
-  priceText: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-    fontWeight: '700',
-  },
-  dateText: {
+  priceLabel: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
     marginTop: 4,
   },
-  tooltip: {
-    backgroundColor: theme.colors.text,
-    padding: 8,
-    borderRadius: 6,
+  domainContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.xs,
   },
-  tooltipText: {
+  domainText: {
     ...theme.typography.caption,
-    color: theme.colors.background,
-    fontWeight: '600',
+    color: theme.colors.textSecondary,
   },
 });
