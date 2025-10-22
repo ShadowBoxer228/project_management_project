@@ -521,6 +521,12 @@ export default function NewsSummaryScreen() {
           )}
         </View>
       )}
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Powered by Perplexity • Refreshed {new Date().toLocaleTimeString()}
+        </Text>
+      </View>
     </ScrollView>
   );
 }

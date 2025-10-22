@@ -116,7 +116,7 @@ export default function StockDetailScreen({ route }) {
     return () => {
       isMounted = false;
     };
-  }, [symbol]);
+  }, [symbol, name]);
 
   const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
   const change = Number.isFinite(quote?.d) ? quote.d : null;
