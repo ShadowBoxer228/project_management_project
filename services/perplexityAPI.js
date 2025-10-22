@@ -104,9 +104,10 @@ const mapSummaryTextToHeadlines = (summaryText) => {
 
   // Process each line as a bullet point
   lines.forEach((line) => {
-    // Skip header lines
+    // Skip header lines and intro text
     if (
       line.match(/^(market headlines|bullet points?|key points?|summary)[:]*$/i) ||
+      line.match(/^(here are|here is|below are|following are)/i) ||
       line.length < 30
     ) {
       return;

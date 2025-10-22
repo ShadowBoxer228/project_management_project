@@ -22,6 +22,8 @@ export default function NewsSummaryScreen() {
   const [marketHeadlines, setMarketHeadlines] = useState([]);
   const [marketHeadlinesMessage, setMarketHeadlinesMessage] = useState('');
   const [marketAdvice, setMarketAdvice] = useState('');
+  const [expandedHeadlines, setExpandedHeadlines] = useState(new Set());
+  const [adviceExpanded, setAdviceExpanded] = useState(false);
   const [economicEvents, setEconomicEvents] = useState([]);
   const [earningsEvents, setEarningsEvents] = useState([]);
   const [earningsQuotes, setEarningsQuotes] = useState({});
@@ -158,6 +160,16 @@ export default function NewsSummaryScreen() {
     });
   };
 
+  const toggleHeadlineExpanded = (index) => {
+    const newExpanded = new Set(expandedHeadlines);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedHeadlines(newExpanded);
+  };
+
   const renderTextWithStockLinks = (text) => {
     if (!text) return null;
 
@@ -291,33 +303,51 @@ export default function NewsSummaryScreen() {
         </View>
         {marketHeadlines.length > 0 ? (
           <View style={styles.headlineList}>
-            {marketHeadlines.map((item, index) => (
-              <TouchableOpacity
-                key={`${item.url || item.title}-${index}`}
-                style={styles.headlineCard}
-                onPress={() => item.url && handleOpenLink(item.url)}
-                activeOpacity={item.url ? 0.7 : 1}
-                disabled={!item.url}
-              >
-                <Text style={styles.headlineTitle}>{item.title}</Text>
-                {item.snippet ? (
-                  <View style={styles.snippetContainer}>
-                    {renderTextWithStockLinks(item.snippet)}
-                  </View>
-                ) : null}
-                {item.url && (
-                  <View style={styles.headlineMeta}>
-                    <Text style={styles.headlineSource}>{getSourceFromUrl(item.url)}</Text>
-                    {item.date ? (
-                      <>
-                        <Text style={styles.headlineSeparator}>•</Text>
-                        <Text style={styles.headlineDate}>{formatHeadlineDate(item.date)}</Text>
-                      </>
-                    ) : null}
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
+            {marketHeadlines.map((item, index) => {
+              const isExpanded = expandedHeadlines.has(index);
+              const hasSnippet = item.snippet && item.snippet.length > 0;
+
+              return (
+                <View key={`${item.url || item.title}-${index}`} style={styles.headlineCard}>
+                  <TouchableOpacity
+                    onPress={() => hasSnippet && toggleHeadlineExpanded(index)}
+                    activeOpacity={hasSnippet ? 0.7 : 1}
+                  >
+                    <View style={styles.headlineTitleRow}>
+                      <Text style={styles.headlineTitle}>{item.title}</Text>
+                      {hasSnippet && (
+                        <Ionicons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {hasSnippet && isExpanded && (
+                    <View style={styles.snippetContainer}>
+                      {renderTextWithStockLinks(item.snippet)}
+                    </View>
+                  )}
+
+                  {item.url && (
+                    <TouchableOpacity onPress={() => handleOpenLink(item.url)}>
+                      <View style={styles.headlineMeta}>
+                        <Ionicons name="link-outline" size={14} color={theme.colors.primary} />
+                        <Text style={styles.headlineSource}>{getSourceFromUrl(item.url)}</Text>
+                        {item.date && (
+                          <>
+                            <Text style={styles.headlineSeparator}>•</Text>
+                            <Text style={styles.headlineDate}>{formatHeadlineDate(item.date)}</Text>
+                          </>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
           </View>
         ) : (
           <Text style={styles.placeholderText}>{headlinesFallbackMessage}</Text>
@@ -465,13 +495,26 @@ export default function NewsSummaryScreen() {
 
       {marketAdvice && (
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="trending-up" size={20} color={theme.colors.success} />
-            <Text style={styles.sectionTitle}>Decision Advice</Text>
-          </View>
-          <View style={styles.adviceContainer}>
-            {renderTextWithStockLinks(marketAdvice)}
-          </View>
+          <TouchableOpacity
+            onPress={() => setAdviceExpanded(!adviceExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionHeader}>
+              <Ionicons name="trending-up" size={20} color={theme.colors.success} />
+              <Text style={styles.sectionTitle}>Decision Advice</Text>
+              <Ionicons
+                name={adviceExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.colors.textSecondary}
+                style={{ marginLeft: 'auto' }}
+              />
+            </View>
+          </TouchableOpacity>
+          {adviceExpanded && (
+            <View style={styles.adviceContainer}>
+              {renderTextWithStockLinks(marketAdvice)}
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
@@ -551,11 +594,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  headlineTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   headlineTitle: {
     ...theme.typography.body,
     color: theme.colors.text,
     fontWeight: '600',
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 8,
   },
   snippetContainer: {
     marginBottom: theme.spacing.sm,
@@ -574,6 +624,8 @@ const styles = StyleSheet.create({
   headlineMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
   },
   headlineSource: {
     ...theme.typography.caption,
