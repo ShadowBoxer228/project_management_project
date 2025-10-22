@@ -6,9 +6,9 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import StockListScreen from './screens/StockListScreen';
-import StockDetailScreen from './screens/StockDetailScreen';
-import NewsSummaryScreen from './screens/NewsSummaryScreen';
+import StockListScreen from './screens/StockListScreen.js';
+import StockDetailScreen from './screens/StockDetailScreen.js';
+import NewsSummaryScreen from './screens/NewsSummaryScreen.js';
 import { theme } from './utils/theme';
 
 const Tab = createBottomTabNavigator();

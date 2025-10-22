@@ -1,7 +1,8 @@
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY || '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';
+const PERPLEXITY_API_KEY =
+  process.env.PERPLEXITY_API_KEY || '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';
 const BASE_URL = 'https://api.perplexity.ai/search';
 
-// Cache for daily summary (24 hour cache)
+// Cache for Perplexity responses
 const cache = new Map();
 const CACHE_DURATION = 86400000; // 24 hours
 
@@ -46,16 +47,31 @@ const executeSearch = async (payload) => {
   }
 };
 
+const dedupeResults = (items = []) => {
+  const unique = [];
+  const seen = new Set();
+
+  items.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const key = item.url || `${item.title || 'untitled'}-${item.date || ''}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+
+  return unique;
+};
+
 export const getDailyMarketSummary = async () => {
-  const today = new Date().toISOString().split('T')[0];
-  const cacheKey = `daily_summary_${today}`;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `daily_summary_${todayIso}`;
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
   const queries = [
-    `pre-market stock market news and futures overview for ${today}`,
-    `major economic events impacting markets on ${today}`,
-    `key earnings announcements for ${today}`,
+    `pre-market stock market news and futures overview for ${todayIso}`,
+    `major economic events impacting markets on ${todayIso}`,
+    `key earnings announcements for ${todayIso}`,
   ];
 
   const results = await executeSearch({
@@ -69,29 +85,16 @@ export const getDailyMarketSummary = async () => {
     return null;
   }
 
-  const flattenedResults = Array.isArray(results[0]) ? results.flat() : results;
-
-  const uniqueResults = [];
-  const seenKeys = new Set();
-
-  flattenedResults.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const key = item.url || `${item.title || 'untitled'}-${item.date || ''}`;
-    if (seenKeys.has(key)) {
-      return;
-    }
-    seenKeys.add(key);
-    uniqueResults.push(item);
-  });
+  const flattened = Array.isArray(results[0]) ? results.flat() : results;
+  const uniqueResults = dedupeResults(flattened);
 
   setCachedData(cacheKey, uniqueResults);
   return uniqueResults;
 };
 
 export const getStockAnalysis = async (symbol, companyName) => {
-  const cacheKey = `stock_analysis_${symbol}_${new Date().toISOString().split('T')[0]}`;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `stock_analysis_${symbol}_${todayIso}`;
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
@@ -114,21 +117,7 @@ export const getStockAnalysis = async (symbol, companyName) => {
     return null;
   }
 
-  const uniqueResults = [];
-  const seenKeys = new Set();
-
-  results.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const key = item.url || `${item.title || 'untitled'}-${item.date || ''}`;
-    if (seenKeys.has(key)) {
-      return;
-    }
-    seenKeys.add(key);
-    uniqueResults.push(item);
-  });
-
+  const uniqueResults = dedupeResults(results);
   setCachedData(cacheKey, uniqueResults);
   return uniqueResults;
 };

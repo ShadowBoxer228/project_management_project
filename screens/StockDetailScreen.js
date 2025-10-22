@@ -6,7 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
@@ -24,9 +24,8 @@ import {
   getCompanyProfile,
 } from '../services/finnhubAPI';
 import { getCompanyOverview } from '../services/alphaVantageAPI';
+import { getStockAnalysis } from '../services/perplexityAPI';
 import StockChart from '../components/StockChart';
-
-const { width } = Dimensions.get('window');
 
 const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
@@ -51,6 +50,8 @@ export default function StockDetailScreen({ route }) {
   const [news, setNews] = useState([]);
   const [profile, setProfile] = useState(null);
   const [overview, setOverview] = useState(null);
+  const [aiInsights, setAiInsights] = useState([]);
+  const [aiInsightsMessage, setAiInsightsMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('line');
   const [timeRange, setTimeRange] = useState('1D');
@@ -67,12 +68,20 @@ export default function StockDetailScreen({ route }) {
     const fetchStockData = async () => {
       setLoading(true);
       try {
-        const [quoteData, financialsData, profileData, overviewData, newsData] = await Promise.all([
+        const [
+          quoteData,
+          financialsData,
+          profileData,
+          overviewData,
+          newsData,
+          aiData,
+        ] = await Promise.all([
           getQuote(symbol),
           getBasicFinancials(symbol),
           getCompanyProfile(symbol),
           getCompanyOverview(symbol),
           getCompanyNews(symbol, getDateString(-7), getDateString(0)),
+          getStockAnalysis(symbol, name),
         ]);
 
         if (!isMounted) return;
@@ -82,9 +91,18 @@ export default function StockDetailScreen({ route }) {
         setProfile(profileData);
         setOverview(overviewData);
         setNews(newsData.slice(0, 10));
+        if (Array.isArray(aiData) && aiData.length > 0) {
+          setAiInsights(aiData);
+          setAiInsightsMessage('');
+        } else {
+          setAiInsights([]);
+          setAiInsightsMessage('No AI insights available for this ticker right now.');
+        }
       } catch (error) {
         if (isMounted) {
           console.error('Error fetching stock data:', error);
+          setAiInsights([]);
+          setAiInsightsMessage('Failed to load AI insights. Please try again later.');
         }
       } finally {
         if (isMounted) {
@@ -115,6 +133,28 @@ export default function StockDetailScreen({ route }) {
   const week52High = parseNumber(overview?.['52WeekHigh'] ?? metrics['52WeekHigh']);
   const week52Low = parseNumber(overview?.['52WeekLow'] ?? metrics['52WeekLow']);
   const beta = parseNumber(overview?.Beta ?? metrics['beta']);
+
+  const formatInsightDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getSourceFromUrl = (url) => {
+    if (!url) return '';
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
+
+  const handleOpenLink = (url) => {
+    if (!url) return;
+    Linking.openURL(url).catch((error) => console.error('Failed to open insight link:', error));
+  };
 
   if (loading) {
     return (
@@ -258,6 +298,40 @@ export default function StockDetailScreen({ route }) {
           ))
         ) : (
           <Text style={styles.noDataText}>No recent news available</Text>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>AI Market Insights</Text>
+        {aiInsights.length > 0 ? (
+          aiInsights.map((insight, index) => (
+            <TouchableOpacity
+              key={`${insight.url || insight.title}-${index}`}
+              style={styles.insightCard}
+              onPress={() => handleOpenLink(insight.url)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.insightTitle}>{insight.title}</Text>
+              {insight.snippet ? (
+                <Text style={styles.insightSnippet} numberOfLines={3}>
+                  {insight.snippet}
+                </Text>
+              ) : null}
+              <View style={styles.insightMeta}>
+                {insight.url ? (
+                  <Text style={styles.insightSource}>{getSourceFromUrl(insight.url)}</Text>
+                ) : null}
+                {insight.date ? (
+                  <>
+                    {insight.url ? <Text style={styles.insightDivider}>•</Text> : null}
+                    <Text style={styles.insightDate}>{formatInsightDate(insight.date)}</Text>
+                  </>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.noDataText}>{aiInsightsMessage}</Text>
         )}
       </View>
 
@@ -443,6 +517,44 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
   },
   newsDate: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+  },
+  insightCard: {
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  insightTitle: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  insightSnippet: {
+    ...theme.typography.small,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+  },
+  insightMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  insightSource: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  insightDivider: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginHorizontal: 6,
+  },
+  insightDate: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
   },

@@ -11,15 +11,19 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
-import { getTimeUntilMarketOpen, isMarketOpen } from '../utils/formatters';
+import { getTimeUntilMarketOpen, isMarketOpen, formatPercentage } from '../utils/formatters';
 import { getDailyMarketSummary } from '../services/perplexityAPI';
-import { getEconomicCalendar, getEarningsCalendar } from '../services/finnhubAPI';
+import { getEconomicCalendar, getEarningsCalendar, getQuote } from '../services/finnhubAPI';
+import sp100Data from '../data/sp100.json';
+import { useNavigation } from '@react-navigation/native';
 
 export default function NewsSummaryScreen() {
+  const navigation = useNavigation();
   const [marketHeadlines, setMarketHeadlines] = useState([]);
   const [marketHeadlinesMessage, setMarketHeadlinesMessage] = useState('');
   const [economicEvents, setEconomicEvents] = useState([]);
   const [earningsEvents, setEarningsEvents] = useState([]);
+  const [earningsQuotes, setEarningsQuotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [timeUntilOpen, setTimeUntilOpen] = useState('');
@@ -56,8 +60,38 @@ export default function NewsSummaryScreen() {
         );
       }
 
-      setEconomicEvents(economicData?.economicCalendar || []);
-      setEarningsEvents(earningsData?.earningsCalendar || []);
+      const economicItems = economicData?.economicCalendar || [];
+      const earningsItems = earningsData?.earningsCalendar || [];
+
+      setEconomicEvents(economicItems);
+      setEarningsEvents(earningsItems);
+
+      const symbolsToFetch = Array.from(
+        new Set(
+          earningsItems
+            .slice(0, 8)
+            .map((event) => event.symbol)
+            .filter(Boolean)
+        )
+      );
+
+      if (symbolsToFetch.length) {
+        const quoteEntries = await Promise.all(
+          symbolsToFetch.map(async (symbol) => {
+            try {
+              const quote = await getQuote(symbol);
+              return [symbol, quote];
+            } catch (error) {
+              console.error(`Error fetching quote for ${symbol}:`, error);
+              return [symbol, null];
+            }
+          })
+        );
+
+        setEarningsQuotes(Object.fromEntries(quoteEntries));
+      } else {
+        setEarningsQuotes({});
+      }
     } catch (error) {
       console.error('Error fetching news data:', error);
       setMarketHeadlines([]);
@@ -109,6 +143,26 @@ export default function NewsSummaryScreen() {
   const handleOpenLink = (url) => {
     if (!url) return;
     Linking.openURL(url).catch((error) => console.error('Failed to open article:', error));
+  };
+
+  const handleNavigateToStock = (symbol) => {
+    if (!symbol) return;
+    const stockMeta = sp100Data.find((stock) => stock.symbol === symbol);
+    navigation.navigate('StockDetail', {
+      symbol,
+      name: stockMeta?.name || symbol,
+    });
+  };
+
+  const getEarningsChangeMeta = (symbol) => {
+    const quote = earningsQuotes[symbol];
+    if (!quote || typeof quote.dp !== 'number') {
+      return { text: 'N/A', isPositive: null };
+    }
+    return {
+      text: formatPercentage(quote.dp),
+      isPositive: quote.dp >= 0,
+    };
   };
 
   if (loading) {
@@ -208,15 +262,75 @@ export default function NewsSummaryScreen() {
             <Text style={styles.sectionTitle}>Today's Earnings</Text>
           </View>
           <View style={styles.calendarContainer}>
-            {earningsEvents.slice(0, 8).map((event, index) => (
-              <View key={index} style={styles.eventItem}>
-                <View style={styles.eventDot} />
-                <View style={styles.eventContent}>
-                  <Text style={styles.eventSymbol}>{event.symbol}</Text>
-                  {event.hour ? <Text style={styles.eventTime}>{event.hour}</Text> : null}
-                </View>
-              </View>
-            ))}
+            {earningsEvents.slice(0, 8).map((event, index) => {
+              const { text, isPositive } = getEarningsChangeMeta(event.symbol);
+              return (
+                <TouchableOpacity
+                  key={`${event.symbol}-${index}`}
+                  style={styles.eventItem}
+                  onPress={() => handleNavigateToStock(event.symbol)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.eventDot} />
+                  <View style={styles.eventContent}>
+                    <View style={styles.eventRow}>
+                      <Text style={styles.eventSymbol}>{event.symbol}</Text>
+                      {event.hour ? <Text style={styles.eventSub}>{event.hour.toLowerCase()}</Text> : null}
+                    </View>
+                    <View style={styles.eventRow}>
+                      {event.estimate ? (
+                        <Text style={styles.eventSub}>Est: {Number(event.estimate).toFixed(2)}</Text>
+                      ) : event.quarter ? (
+                        <Text style={styles.eventSub}>{event.quarter}</Text>
+                      ) : (
+                        <Text style={styles.eventSub} />
+                      )}
+                      <View
+                        style={[
+                          styles.eventChangeBadge,
+                          isPositive === null
+                            ? styles.eventChangeNeutral
+                            : isPositive
+                            ? styles.eventChangePositive
+                            : styles.eventChangeNegative,
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            isPositive === null
+                              ? 'remove-outline'
+                              : isPositive
+                              ? 'trending-up'
+                              : 'trending-down'
+                          }
+                          size={12}
+                          color={
+                            isPositive === null
+                              ? theme.colors.textSecondary
+                              : isPositive
+                              ? theme.colors.success
+                              : theme.colors.error
+                          }
+                          style={styles.eventChangeIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.eventChangeText,
+                            isPositive === null
+                              ? { color: theme.colors.textSecondary }
+                              : isPositive
+                              ? { color: theme.colors.success }
+                              : { color: theme.colors.error },
+                          ]}
+                        >
+                          {text}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       )}
@@ -423,6 +537,17 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.text,
     fontWeight: '600',
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  eventSub: {
+    ...theme.typography.small,
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
   },
   eventMeta: {
     flexDirection: 'row',
