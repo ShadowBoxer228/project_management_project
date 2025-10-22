@@ -92,7 +92,10 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           </LineChart>
           <LineChart.PriceText
             style={styles.priceText}
-            format={({ value }) => `$${value.toFixed(2)}`}
+            format={({ value }) => {
+              const price = typeof value === 'number' ? value : parseFloat(value) || 0;
+              return `$${price.toFixed(2)}`;
+            }}
           />
           <LineChart.DatetimeText
             style={styles.dateText}
@@ -121,7 +124,10 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           </CandlestickChart>
           <CandlestickChart.PriceText
             style={styles.priceText}
-            format={({ value }) => `$${value.toFixed(2)}`}
+            format={({ value }) => {
+              const price = typeof value === 'number' ? value : parseFloat(value) || 0;
+              return `$${price.toFixed(2)}`;
+            }}
           />
           <CandlestickChart.DatetimeText
             style={styles.dateText}

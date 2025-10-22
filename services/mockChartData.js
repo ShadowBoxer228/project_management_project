@@ -163,11 +163,11 @@ export const generateEnhancedChartData = (symbol, timeRange) => {
 
     data.push({
       timestamp: now - (points - i) * interval,
-      value: close,
-      open: Math.max(0, open),
-      high: Math.max(0, high),
-      low: Math.max(0, low),
-      close: Math.max(0, close),
+      value: Number(close.toFixed(2)),
+      open: Number(Math.max(0, open).toFixed(2)),
+      high: Number(Math.max(0, high).toFixed(2)),
+      low: Number(Math.max(0, low).toFixed(2)),
+      close: Number(Math.max(0, close).toFixed(2)),
     });
   }
 
