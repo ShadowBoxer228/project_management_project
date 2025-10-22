@@ -6,6 +6,12 @@ import { generateEnhancedChartData } from '../services/mockChartData';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 32;
+const debugLog = (...args) => {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[StockChart]', ...args);
+  }
+};
 
 const sanitizePoint = (point) => {
   if (!point) return null;
@@ -80,6 +86,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
 
       setLoading(true);
       setError(null);
+      debugLog('Loading chart data', { symbol, timeRange });
 
       try {
         const chartData = generateEnhancedChartData(symbol, timeRange);
@@ -99,16 +106,19 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
 
         if (validatedData.length > 600) {
           validatedData = validatedData.slice(validatedData.length - 600);
+          debugLog('Trimmed long dataset', { original: chartData.length, trimmed: validatedData.length });
         }
 
         if (isActive) {
           setData(validatedData);
+          debugLog('Chart data ready', { symbol, timeRange, points: validatedData.length });
         }
       } catch (err) {
         console.error(`Error generating chart for ${symbol}:`, err);
         if (isActive) {
           setError('Unable to load chart data');
           setData([]);
+          debugLog('Chart data failed', { symbol, timeRange, error: err?.message });
         }
       } finally {
         if (isActive) {
@@ -127,6 +137,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
   }, [symbol, timeRange]);
 
   const { changePercent, isPositive } = getChangeMeta(data);
+  debugLog('Render with stats', { symbol, timeRange, points: data.length, changePercent });
 
   if (loading) {
     return (

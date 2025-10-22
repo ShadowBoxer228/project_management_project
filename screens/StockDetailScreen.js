@@ -28,6 +28,12 @@ import { getStockAnalysis } from '../services/perplexityAPI';
 import StockChart from '../components/StockChart';
 
 const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
+const debugLog = (...args) => {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[StockDetailScreen]', ...args);
+  }
+};
 
 const parseNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -66,6 +72,7 @@ export default function StockDetailScreen({ route }) {
     };
 
     const fetchStockData = async () => {
+      debugLog('Fetching stock data', { symbol, name });
       setLoading(true);
       try {
         const [
@@ -98,15 +105,24 @@ export default function StockDetailScreen({ route }) {
           setAiInsights([]);
           setAiInsightsMessage('No AI insights available for this ticker right now.');
         }
+        debugLog('Fetch success', {
+          symbol,
+          quoteLoaded: Boolean(quoteData),
+          financialLoaded: Boolean(financialsData),
+          newsCount: newsData?.length || 0,
+          insightsCount: aiData?.length || 0,
+        });
       } catch (error) {
         if (isMounted) {
           console.error('Error fetching stock data:', error);
           setAiInsights([]);
           setAiInsightsMessage('Failed to load AI insights. Please try again later.');
+          debugLog('Fetch failed', { symbol, error: error?.message });
         }
       } finally {
         if (isMounted) {
           setLoading(false);
+          debugLog('Fetch finished', { symbol });
         }
       }
     };
@@ -115,6 +131,7 @@ export default function StockDetailScreen({ route }) {
 
     return () => {
       isMounted = false;
+      debugLog('Cleanup', { symbol });
     };
   }, [symbol, name]);
 
