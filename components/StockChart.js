@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { theme } from '../utils/theme';
@@ -42,6 +42,28 @@ const sanitizePoint = (point) => {
     high: adjustedHigh,
     low: adjustedLow,
     close,
+  };
+};
+
+const getChangeMeta = (series) => {
+  if (!Array.isArray(series) || series.length === 0) {
+    return {
+      changePercent: 0,
+      isPositive: true,
+    };
+  }
+
+  const startValue = series[0]?.value;
+  const endValue = series[series.length - 1]?.value ?? startValue;
+
+  const safeStart = Number.isFinite(startValue) && startValue !== 0 ? startValue : null;
+  const safeEnd = Number.isFinite(endValue) ? endValue : safeStart ?? 0;
+
+  const percent = safeStart !== null ? ((safeEnd - safeStart) / safeStart) * 100 : 0;
+
+  return {
+    changePercent: Number.isFinite(percent) ? percent : 0,
+    isPositive: safeEnd >= (safeStart ?? safeEnd),
   };
 };
 
@@ -104,28 +126,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
     };
   }, [symbol, timeRange]);
 
-  const { changePercent, isPositive } = useMemo(() => {
-    if (!data.length) {
-      return {
-        changePercent: 0,
-        isPositive: true,
-      };
-    }
-
-    const startValue = data[0]?.value;
-    const endValue = data[data.length - 1]?.value ?? startValue;
-
-    const safeStart = Number.isFinite(startValue) && startValue !== 0 ? startValue : null;
-    const safeEnd = Number.isFinite(endValue) ? endValue : safeStart ?? 0;
-
-    const percent =
-      safeStart !== null ? ((safeEnd - safeStart) / safeStart) * 100 : 0;
-
-    return {
-      changePercent: Number.isFinite(percent) ? percent : 0,
-      isPositive: safeEnd >= (safeStart ?? safeEnd),
-    };
-  }, [data]);
+  const { changePercent, isPositive } = getChangeMeta(data);
 
   if (loading) {
     return (
