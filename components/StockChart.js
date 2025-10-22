@@ -38,6 +38,12 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [useMockData, setUseMockData] = useState(false);
+  const formatPriceLabel = ({ value }) => {
+    if (value == null) return '--';
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) return '--';
+    return `$${numeric.toFixed(2)}`;
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -167,7 +173,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           </LineChart>
           <LineChart.PriceText
             style={styles.priceText}
-            format={({ value }) => `$${value.toFixed(2)}`}
+            format={formatPriceLabel}
           />
           <LineChart.DatetimeText style={styles.dateText} />
         </LineChart.Provider>
@@ -187,7 +193,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
           </CandlestickChart>
           <CandlestickChart.PriceText
             style={styles.priceText}
-            format={({ value }) => `$${value.toFixed(2)}`}
+            format={formatPriceLabel}
           />
           <CandlestickChart.DatetimeText style={styles.dateText} />
         </CandlestickChart.Provider>

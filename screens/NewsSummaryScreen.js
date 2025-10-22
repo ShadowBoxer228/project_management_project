@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { getTimeUntilMarketOpen, isMarketOpen, formatPercentage } from '../utils/formatters';
-import { getDailyMarketSummary } from '../services/perplexityAPI';
+import { getDailyMarketSummary, getMarketAdvice } from '../services/perplexityAPI';
 import { getEconomicCalendar, getEarningsCalendar, getQuote } from '../services/finnhubAPI';
 import sp100Data from '../data/sp100.json';
 import { useNavigation } from '@react-navigation/native';
@@ -21,6 +21,7 @@ export default function NewsSummaryScreen() {
   const navigation = useNavigation();
   const [marketHeadlines, setMarketHeadlines] = useState([]);
   const [marketHeadlinesMessage, setMarketHeadlinesMessage] = useState('');
+  const [marketAdvice, setMarketAdvice] = useState('');
   const [economicEvents, setEconomicEvents] = useState([]);
   const [earningsEvents, setEarningsEvents] = useState([]);
   const [earningsQuotes, setEarningsQuotes] = useState({});
@@ -44,8 +45,9 @@ export default function NewsSummaryScreen() {
 
   const fetchData = async () => {
     try {
-      const [headlines, economicData, earningsData] = await Promise.all([
+      const [headlines, advice, economicData, earningsData] = await Promise.all([
         getDailyMarketSummary(),
+        getMarketAdvice(),
         getEconomicCalendar(),
         getEarningsCalendar(),
       ]);
@@ -59,6 +61,8 @@ export default function NewsSummaryScreen() {
           'Market headlines unavailable. Please verify your Perplexity API configuration.'
         );
       }
+
+      setMarketAdvice(advice || '');
 
       const economicItems = economicData?.economicCalendar || [];
       const earningsItems = earningsData?.earningsCalendar || [];
@@ -288,52 +292,31 @@ export default function NewsSummaryScreen() {
         {marketHeadlines.length > 0 ? (
           <View style={styles.headlineList}>
             {marketHeadlines.map((item, index) => (
-              <View
+              <TouchableOpacity
                 key={`${item.url || item.title}-${index}`}
-                style={[
-                  styles.headlineCard,
-                  item.isAdvice && styles.adviceCard,
-                ]}
+                style={styles.headlineCard}
+                onPress={() => item.url && handleOpenLink(item.url)}
+                activeOpacity={item.url ? 0.7 : 1}
+                disabled={!item.url}
               >
-                <View style={styles.headlineHeader}>
-                  {item.isAdvice && (
-                    <Ionicons
-                      name="bulb"
-                      size={18}
-                      color={theme.colors.warning}
-                      style={{ marginRight: 8 }}
-                    />
-                  )}
-                  <Text style={[styles.headlineTitle, item.isAdvice && styles.adviceTitle]}>
-                    {item.title}
-                  </Text>
-                </View>
+                <Text style={styles.headlineTitle}>{item.title}</Text>
                 {item.snippet ? (
                   <View style={styles.snippetContainer}>
                     {renderTextWithStockLinks(item.snippet)}
                   </View>
                 ) : null}
-                <View style={styles.headlineMeta}>
-                  {item.source && item.url ? (
-                    <TouchableOpacity
-                      onPress={() => handleOpenLink(item.url)}
-                      style={styles.sourceButton}
-                    >
-                      <Ionicons name="link" size={14} color={theme.colors.primary} />
-                      <Text style={styles.sourceButtonText}>{item.source}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  {item.date && !item.isAiGenerated ? (
-                    <>
-                      {item.url ? <Text style={styles.headlineSeparator}>•</Text> : null}
-                      <Text style={styles.headlineDate}>{formatHeadlineDate(item.date)}</Text>
-                    </>
-                  ) : null}
-                  {item.isAiGenerated && (
-                    <Text style={styles.aiGeneratedBadge}>AI Summary</Text>
-                  )}
-                </View>
-              </View>
+                {item.url && (
+                  <View style={styles.headlineMeta}>
+                    <Text style={styles.headlineSource}>{getSourceFromUrl(item.url)}</Text>
+                    {item.date ? (
+                      <>
+                        <Text style={styles.headlineSeparator}>•</Text>
+                        <Text style={styles.headlineDate}>{formatHeadlineDate(item.date)}</Text>
+                      </>
+                    ) : null}
+                  </View>
+                )}
+              </TouchableOpacity>
             ))}
           </View>
         ) : (
@@ -480,11 +463,17 @@ export default function NewsSummaryScreen() {
         </View>
       )}
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Powered by Perplexity Search • Updated {new Date().toLocaleTimeString()}
-        </Text>
-      </View>
+      {marketAdvice && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="trending-up" size={20} color={theme.colors.success} />
+            <Text style={styles.sectionTitle}>Decision Advice</Text>
+          </View>
+          <View style={styles.adviceContainer}>
+            {renderTextWithStockLinks(marketAdvice)}
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -562,23 +551,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  adviceCard: {
-    backgroundColor: theme.colors.warning + '10',
-    borderColor: theme.colors.warning + '40',
-  },
-  headlineHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
   headlineTitle: {
     ...theme.typography.body,
     color: theme.colors.text,
     fontWeight: '600',
-    flex: 1,
-  },
-  adviceTitle: {
-    color: theme.colors.warning,
+    marginBottom: 6,
   },
   snippetContainer: {
     marginBottom: theme.spacing.sm,
@@ -597,27 +574,6 @@ const styles = StyleSheet.create({
   headlineMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  sourceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.primary + '15',
-    gap: 4,
-  },
-  sourceButtonText: {
-    ...theme.typography.caption,
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
-  aiGeneratedBadge: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    fontStyle: 'italic',
   },
   headlineSource: {
     ...theme.typography.caption,
@@ -637,6 +593,13 @@ const styles = StyleSheet.create({
   placeholderText: {
     ...theme.typography.body,
     color: theme.colors.textSecondary,
+  },
+  adviceContainer: {
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.success + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.success + '30',
   },
   calendarContainer: {
     gap: theme.spacing.sm,

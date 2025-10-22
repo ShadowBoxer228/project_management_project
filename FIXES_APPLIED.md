@@ -92,24 +92,23 @@
 ### First 10 seconds:
 - App loads
 - Stock list appears
-- Some stocks show prices (first ~10)
+- First 10-15 stocks loaded (AAPL, MSFT, GOOGL, etc.)
 - Others show loading spinner
+- **Loads sequentially from top to bottom**
 
 ### 30 seconds:
-- ~30 stocks have prices
-- Rest still loading
+- First 50 stocks have prices
+- Loading progresses down the list
 - Can scroll and interact
 - Charts show mock data
 
 ### 60 seconds:
-- ~60 stocks have prices
-- Rate limit resets
-- Remaining stocks loading
-
-### 2 minutes:
 - All 100 stocks loaded ✅
+- Loading completed
 - Full functionality
 - Can navigate to any stock
+
+**Visual Effect**: You'll see prices "cascade" down the list from top to bottom - looks very professional!
 
 ---
 

@@ -88,7 +88,7 @@ const executeCompletion = async ({ messages, maxTokens = 1200, temperature = 0.3
   }
 };
 
-const mapSummaryTextToHeadlines = (summaryText, citations = []) => {
+const mapSummaryTextToHeadlines = (summaryText) => {
   if (!summaryText) return null;
 
   // Clean up the text - remove markdown, citations numbers like [1], [2], etc.
@@ -101,70 +101,59 @@ const mapSummaryTextToHeadlines = (summaryText, citations = []) => {
   if (!lines.length) return null;
 
   const headlines = [];
-  let summarySection = '';
-  let adviceSection = '';
-  let currentSection = 'summary';
 
-  // Split content into summary and advice sections
-  lines.forEach((line, index) => {
-    const lowerLine = line.toLowerCase();
-
-    // Detect advice/outlook section - check for headers or last paragraph
+  // Process each line as a bullet point
+  lines.forEach((line) => {
+    // Skip header lines
     if (
-      lowerLine.startsWith('market outlook') ||
-      lowerLine.startsWith('key takeaway') ||
-      lowerLine.startsWith('in summary') ||
-      lowerLine.startsWith('advice') ||
-      lowerLine.startsWith('recommendation') ||
-      (index === lines.length - 1 && line.length > 50) // Last substantial line is likely outlook
+      line.match(/^(market headlines|bullet points?|key points?|summary)[:]*$/i) ||
+      line.length < 30
     ) {
-      currentSection = 'advice';
+      return;
     }
 
-    if (currentSection === 'summary') {
-      summarySection += line + ' ';
-    } else if (currentSection === 'advice') {
-      // Skip header lines like "Market Outlook:" or "**Market Outlook:**"
-      if (!lowerLine.match(/^(market outlook|key takeaway|in summary|advice|recommendation)[:]*$/)) {
-        adviceSection += line + ' ';
+    // Match numbered or bulleted items
+    const bulletMatch = line.match(/^[•\-*]\s*(.+)/);
+    const numberedMatch = line.match(/^\d+[.)]\s*(.+)/);
+
+    let content = bulletMatch ? bulletMatch[1] : numberedMatch ? numberedMatch[1] : line;
+    content = content.trim();
+
+    // Split into title and snippet if there's a colon or dash
+    const splitMatch = content.match(/^([^:—-]+)[:\—\-]\s*(.+)$/);
+
+    if (splitMatch && splitMatch[1].length < 80) {
+      headlines.push({
+        title: splitMatch[1].trim(),
+        snippet: splitMatch[2].trim(),
+        date: new Date().toISOString(),
+        url: null,
+      });
+    } else {
+      // No clear split - take first 1-2 sentences
+      const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 15);
+      if (sentences.length >= 2) {
+        headlines.push({
+          title: sentences[0].trim() + '.',
+          snippet: sentences[1].trim() + '.',
+          date: new Date().toISOString(),
+          url: null,
+        });
+      } else if (content.length > 50) {
+        // Single long sentence - use first part as title
+        const words = content.split(' ');
+        const midPoint = Math.min(10, Math.floor(words.length / 2));
+        headlines.push({
+          title: words.slice(0, midPoint).join(' ') + '...',
+          snippet: words.slice(midPoint).join(' '),
+          date: new Date().toISOString(),
+          url: null,
+        });
       }
     }
   });
 
-  // Create main summary headline with 1-2 sentence highlight
-  const sentences = summarySection.split(/[.!?]+/).filter((s) => s.trim().length > 20);
-  const highlightText = sentences.slice(0, 2).join('.').trim() + (sentences.length > 0 ? '.' : '');
-
-  if (highlightText) {
-    headlines.push({
-      title: 'Market Summary',
-      snippet: highlightText,
-      date: new Date().toISOString(),
-      url: citations[0]?.url || null,
-      source: citations[0] ? 'View Sources' : null,
-      isAiGenerated: true,
-    });
-  }
-
-  // Add advice section if available
-  if (adviceSection.trim()) {
-    const adviceSentences = adviceSection.split(/[.!?]+/).filter((s) => s.trim().length > 15);
-    const adviceText = adviceSentences.slice(0, 2).join('.').trim() + (adviceSentences.length > 0 ? '.' : '');
-
-    if (adviceText) {
-      headlines.push({
-        title: "Today's Market Outlook",
-        snippet: adviceText,
-        date: new Date().toISOString(),
-        url: null,
-        source: null,
-        isAdvice: true,
-        isAiGenerated: true,
-      });
-    }
-  }
-
-  return headlines.length > 0 ? headlines : null;
+  return headlines.length > 0 ? headlines.slice(0, 7) : null;
 };
 
 const mapInsightTextToItems = (text, symbol, companyName) => {
@@ -219,33 +208,30 @@ export const getDailyMarketSummary = async () => {
         {
           role: 'system',
           content:
-            'You are a financial analyst providing concise, actionable market summaries.',
+            'You are a financial analyst providing concise market updates.',
         },
         {
           role: 'user',
-          content: `Provide a comprehensive pre-market summary for US markets on ${todayIso}.
+          content: `Provide 5-7 concise bullet points about US pre-market conditions for ${todayIso}.
 
-Write 2-3 paragraphs covering:
-- Current market sentiment and major index movements
-- Key economic events and data releases
-- Notable earnings reports and company news
-- Sector performance and trends
-- Major risks and opportunities
+Each bullet point should be 1-2 sentences covering:
+- Market sentiment and index movements
+- Key economic events and data releases today
+- Notable earnings reports
+- Sector performance highlights
+- Significant company news or events
 
-Then end with a section titled "Market Outlook" or "Key Takeaways" that provides 1-2 sentences of actionable advice for traders and investors today.`,
+Format as bullet points with a colon separating topic from details (e.g., "Market Sentiment: Indices are up 0.5% in pre-market trading.")`,
         },
       ],
-      maxTokens: 800,
+      maxTokens: 600,
     });
 
     if (!completionResponse || !completionResponse.content) {
       return null;
     }
 
-    const fallbackHeadlines = mapSummaryTextToHeadlines(
-      completionResponse.content,
-      completionResponse.citations
-    );
+    const fallbackHeadlines = mapSummaryTextToHeadlines(completionResponse.content);
     setCachedData(cacheKey, fallbackHeadlines);
     return fallbackHeadlines;
   }
@@ -255,6 +241,48 @@ Then end with a section titled "Market Outlook" or "Key Takeaways" that provides
 
   setCachedData(cacheKey, uniqueResults);
   return uniqueResults;
+};
+
+export const getMarketAdvice = async () => {
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `market_advice_${todayIso}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) return cached;
+
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a senior market strategist providing actionable trading advice.',
+      },
+      {
+        role: 'user',
+        content: `Based on current US market conditions for ${todayIso}, provide 3-4 sentences of actionable advice for traders and investors.
+
+Address:
+- What to expect in today's market
+- Which sectors or opportunities to watch
+- Key risks to be aware of
+- Recommended trading approach (cautious, aggressive, selective, etc.)
+
+Be specific and practical.`,
+      },
+    ],
+    maxTokens: 300,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    return null;
+  }
+
+  const advice = completionResponse.content
+    .replace(/\*\*/g, '')
+    .replace(/\[[\d,\s]+\]/g, '')
+    .trim();
+
+  setCachedData(cacheKey, advice);
+  return advice;
 };
 
 export const getStockAnalysis = async (symbol, companyName) => {
