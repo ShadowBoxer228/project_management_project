@@ -20,19 +20,30 @@ const StockListItem = ({ item, onPress }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchQuote();
-  }, []);
+    let isMounted = true;
 
-  const fetchQuote = async () => {
-    try {
-      const data = await getQuote(item.symbol);
-      setQuote(data);
-    } catch (error) {
-      console.error(`Error fetching quote for ${item.symbol}:`, error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchQuote = async () => {
+      setLoading(true);
+      try {
+        const data = await getQuote(item.symbol);
+        if (isMounted) {
+          setQuote(data);
+        }
+      } catch (error) {
+        console.error(`Error fetching quote for ${item.symbol}:`, error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchQuote();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item.symbol]);
 
   const currentPrice = quote?.c || 0;
   const change = quote?.d || 0;

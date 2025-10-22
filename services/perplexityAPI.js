@@ -31,7 +31,7 @@ export const getDailyMarketSummary = async () => {
         'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -63,7 +63,21 @@ Format the response with clear bullet points. Be concise and professional.`,
       }),
     });
 
+    // Log response status and body for debugging
+    console.log('Perplexity API Response Status:', response.status);
+    console.log('Perplexity API Response Headers:', Object.fromEntries(response.headers.entries()));
+    
     const data = await response.json();
+    console.log('Perplexity API Response Body:', JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      console.error('Perplexity API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: data.error || 'Unknown error'
+      });
+      return null;
+    }
 
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const summary = data.choices[0].message.content;
@@ -91,7 +105,7 @@ export const getStockAnalysis = async (symbol, companyName) => {
         'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -113,7 +127,21 @@ Keep it concise and professional with bullet points.`,
       }),
     });
 
+    // Log response status and body for debugging
+    console.log('Perplexity Stock Analysis Response Status:', response.status);
+    console.log('Perplexity Stock Analysis Response Headers:', Object.fromEntries(response.headers.entries()));
+    
     const data = await response.json();
+    console.log('Perplexity Stock Analysis Response Body:', JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      console.error('Perplexity Stock Analysis API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: data.error || 'Unknown error'
+      });
+      return null;
+    }
 
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const analysis = data.choices[0].message.content;

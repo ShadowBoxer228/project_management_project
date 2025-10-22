@@ -7,88 +7,104 @@ import { getDailyData, getIntradayData } from '../services/alphaVantageAPI';
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 32;
 
+const generateMockData = (range) => {
+  const points = range === '1D' ? 78 : range === '1W' ? 7 : range === '1M' ? 30 : 90;
+  const basePrice = 150;
+  const now = Date.now();
+  const interval = range === '1D' ? 300000 : 86400000; // 5min or 1day
+
+  return Array.from({ length: points }, (_, i) => {
+    const volatility = Math.random() * 10 - 5;
+    const price = basePrice + volatility + i * 0.5;
+    return {
+      timestamp: now - (points - i) * interval,
+      value: price,
+      open: price + Math.random() * 2 - 1,
+      high: price + Math.random() * 3,
+      low: price - Math.random() * 3,
+      close: price,
+    };
+  });
+};
+
 export default function StockChart({ symbol, chartType = 'line', timeRange = '1D' }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchChartData();
-  }, [symbol, timeRange]);
+    let isActive = true;
 
-  const fetchChartData = async () => {
-    setLoading(true);
-    try {
-      let chartData = [];
+    const fetchChartData = async () => {
+      if (!isActive) return;
+      setLoading(true);
 
-      if (timeRange === '1D') {
-        const response = await getIntradayData(symbol, '5min');
-        if (response && response['Time Series (5min)']) {
-          const timeSeries = response['Time Series (5min)'];
-          chartData = Object.entries(timeSeries)
-            .slice(0, 78) // Last 6.5 hours of trading
-            .reverse()
-            .map(([timestamp, values]) => ({
-              timestamp: new Date(timestamp).getTime(),
-              value: parseFloat(values['4. close']),
-              open: parseFloat(values['1. open']),
-              high: parseFloat(values['2. high']),
-              low: parseFloat(values['3. low']),
-              close: parseFloat(values['4. close']),
-            }));
+      try {
+        let chartData = [];
+
+        if (timeRange === '1D') {
+          const response = await getIntradayData(symbol, '5min');
+          if (!isActive) return;
+          if (response && response['Time Series (5min)']) {
+            const timeSeries = response['Time Series (5min)'];
+            chartData = Object.entries(timeSeries)
+              .slice(0, 78) // Last 6.5 hours of trading
+              .reverse()
+              .map(([timestamp, values]) => ({
+                timestamp: new Date(timestamp).getTime(),
+                value: parseFloat(values['4. close']),
+                open: parseFloat(values['1. open']),
+                high: parseFloat(values['2. high']),
+                low: parseFloat(values['3. low']),
+                close: parseFloat(values['4. close']),
+              }));
+          }
+        } else {
+          const response = await getDailyData(symbol);
+          if (!isActive) return;
+          if (response && response['Time Series (Daily)']) {
+            const timeSeries = response['Time Series (Daily)'];
+            let limit = 7; // 1W
+            if (timeRange === '1M') limit = 30;
+            else if (timeRange === '3M') limit = 90;
+            else if (timeRange === '1Y') limit = 365;
+            else if (timeRange === 'ALL') limit = 1000;
+
+            chartData = Object.entries(timeSeries)
+              .slice(0, limit)
+              .reverse()
+              .map(([timestamp, values]) => ({
+                timestamp: new Date(timestamp).getTime(),
+                value: parseFloat(values['4. close']),
+                open: parseFloat(values['1. open']),
+                high: parseFloat(values['2. high']),
+                low: parseFloat(values['3. low']),
+                close: parseFloat(values['4. close']),
+              }));
+          }
         }
-      } else {
-        const response = await getDailyData(symbol);
-        if (response && response['Time Series (Daily)']) {
-          const timeSeries = response['Time Series (Daily)'];
-          let limit = 7; // 1W
-          if (timeRange === '1M') limit = 30;
-          else if (timeRange === '3M') limit = 90;
-          else if (timeRange === '1Y') limit = 365;
-          else if (timeRange === 'ALL') limit = 1000;
 
-          chartData = Object.entries(timeSeries)
-            .slice(0, limit)
-            .reverse()
-            .map(([timestamp, values]) => ({
-              timestamp: new Date(timestamp).getTime(),
-              value: parseFloat(values['4. close']),
-              open: parseFloat(values['1. open']),
-              high: parseFloat(values['2. high']),
-              low: parseFloat(values['3. low']),
-              close: parseFloat(values['4. close']),
-            }));
+        if (isActive) {
+          setData(chartData);
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        if (isActive) {
+          // Generate mock data for demo purposes
+          setData(generateMockData(timeRange));
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
         }
       }
+    };
 
-      setData(chartData);
-    } catch (error) {
-      console.error('Error fetching chart data:', error);
-      // Generate mock data for demo purposes
-      setData(generateMockData(timeRange));
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchChartData();
 
-  const generateMockData = (range) => {
-    const points = range === '1D' ? 78 : range === '1W' ? 7 : range === '1M' ? 30 : 90;
-    const basePrice = 150;
-    const now = Date.now();
-    const interval = range === '1D' ? 300000 : 86400000; // 5min or 1day
-
-    return Array.from({ length: points }, (_, i) => {
-      const volatility = Math.random() * 10 - 5;
-      const price = basePrice + volatility + (i * 0.5);
-      return {
-        timestamp: now - (points - i) * interval,
-        value: price,
-        open: price + Math.random() * 2 - 1,
-        high: price + Math.random() * 3,
-        low: price - Math.random() * 3,
-        close: price,
-      };
-    });
-  };
+    return () => {
+      isActive = false;
+    };
+  }, [symbol, timeRange]);
 
   if (loading) {
     return (
