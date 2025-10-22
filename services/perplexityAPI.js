@@ -1,6 +1,7 @@
 const PERPLEXITY_API_KEY =
   process.env.PERPLEXITY_API_KEY || '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';
 const BASE_URL = 'https://api.perplexity.ai/search';
+const COMPLETIONS_URL = 'https://api.perplexity.ai/chat/completions';
 
 // Cache for Perplexity responses
 const cache = new Map();
@@ -47,6 +48,111 @@ const executeSearch = async (payload) => {
   }
 };
 
+const executeCompletion = async ({ messages, maxTokens = 1200, temperature = 0.3 }) => {
+  try {
+    const response = await fetch(COMPLETIONS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Perplexity Chat API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: data?.error || 'Unknown error',
+      });
+      return null;
+    }
+
+    const content = data?.choices?.[0]?.message?.content;
+    return typeof content === 'string' ? content.trim() : null;
+  } catch (error) {
+    console.error('Error executing Perplexity completion:', error);
+    return null;
+  }
+};
+
+const mapSummaryTextToHeadlines = (summaryText) => {
+  if (!summaryText) return null;
+
+  const lines = summaryText.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) {
+    return [
+      {
+        title: 'AI Market Overview',
+        snippet: summaryText,
+        date: new Date().toISOString(),
+      },
+    ];
+  }
+
+  const headlines = [];
+  let currentTitle = null;
+  let currentSnippet = [];
+
+  lines.forEach((line) => {
+    const titleMatch = line.match(/^\d+\.\s*(.+)/);
+    if (titleMatch) {
+      if (currentTitle) {
+        headlines.push({
+          title: currentTitle,
+          snippet: currentSnippet.join(' '),
+          date: new Date().toISOString(),
+        });
+      }
+      currentTitle = titleMatch[1];
+      currentSnippet = [];
+    } else if (line.startsWith('-')) {
+      currentSnippet.push(line.replace(/^-\s*/, ''));
+    } else if (currentTitle) {
+      currentSnippet.push(line);
+    }
+  });
+
+  if (currentTitle) {
+    headlines.push({
+      title: currentTitle,
+      snippet: currentSnippet.join(' '),
+      date: new Date().toISOString(),
+    });
+  }
+
+  if (!headlines.length) {
+    return [
+      {
+        title: 'AI Market Overview',
+        snippet: summaryText,
+        date: new Date().toISOString(),
+      },
+    ];
+  }
+
+  return headlines.slice(0, 6);
+};
+
+const mapInsightTextToItems = (text, symbol, companyName) => {
+  if (!text) return [];
+  const sections = text.split(/\n\s*\n/).map((chunk) => chunk.trim()).filter(Boolean);
+
+  return sections.slice(0, 5).map((chunk, idx) => ({
+    title: `${companyName || symbol} Insight ${idx + 1}`,
+    snippet: chunk,
+    url: null,
+    date: new Date().toISOString(),
+  }));
+};
+
 const dedupeResults = (items = []) => {
   const unique = [];
   const seen = new Set();
@@ -82,7 +188,28 @@ export const getDailyMarketSummary = async () => {
   });
 
   if (!results) {
-    return null;
+    const completionText = await executeCompletion({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a financial analyst providing concise market summaries. Use numbered sections with short explanations.',
+        },
+        {
+          role: 'user',
+          content: `Provide a pre-market US market summary for ${todayIso}. Include: 1) overall market sentiment, 2) major economic events, 3) notable earnings, 4) sector highlights, 5) headline risks. Keep it concise.`,
+        },
+      ],
+      maxTokens: 900,
+    });
+
+    if (!completionText) {
+      return null;
+    }
+
+    const fallbackHeadlines = mapSummaryTextToHeadlines(completionText);
+    setCachedData(cacheKey, fallbackHeadlines);
+    return fallbackHeadlines;
   }
 
   const flattened = Array.isArray(results[0]) ? results.flat() : results;
@@ -114,7 +241,28 @@ export const getStockAnalysis = async (symbol, companyName) => {
   });
 
   if (!results) {
-    return null;
+    const completionText = await executeCompletion({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a market analyst summarizing actionable stock insights using short paragraphs.',
+        },
+        {
+          role: 'user',
+          content: `Provide the five most important updates for ${companyName || symbol}. Cover recent news, analyst commentary, technical signals, institutional activity, and any risks. Use short paragraphs.`,
+        },
+      ],
+      maxTokens: 800,
+    });
+
+    if (!completionText) {
+      return null;
+    }
+
+    const fallbackInsights = mapInsightTextToItems(completionText, symbol, companyName);
+    setCachedData(cacheKey, fallbackInsights);
+    return fallbackInsights;
   }
 
   const uniqueResults = dedupeResults(results);

@@ -45,10 +45,12 @@ const StockListItem = ({ item, onPress }) => {
     };
   }, [item.symbol]);
 
-  const currentPrice = quote?.c || 0;
-  const change = quote?.d || 0;
-  const changePercent = quote?.dp || 0;
-  const isPositive = change >= 0;
+  const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
+  const change = Number.isFinite(quote?.d) ? quote.d : null;
+  const changePercent = Number.isFinite(quote?.dp) ? quote.dp : null;
+  const isPositive =
+    changePercent !== null ? changePercent >= 0 : change !== null ? change >= 0 : null;
+  const formattedChange = changePercent !== null ? formatPercentage(changePercent) : 'N/A';
 
   return (
     <TouchableOpacity style={styles.stockItem} onPress={() => onPress(item)}>
@@ -63,27 +65,34 @@ const StockListItem = ({ item, onPress }) => {
       ) : (
         <View style={styles.priceContainer}>
           <Text style={styles.price}>{formatCurrency(currentPrice)}</Text>
-          <View
-            style={[
-              styles.changeContainer,
-              { backgroundColor: isPositive ? theme.colors.success + '15' : theme.colors.error + '15' },
-            ]}
-          >
-            <Ionicons
-              name={isPositive ? 'trending-up' : 'trending-down'}
-              size={12}
-              color={isPositive ? theme.colors.success : theme.colors.error}
-              style={{ marginRight: 4 }}
-            />
-            <Text
+          {changePercent !== null ? (
+            <View
               style={[
-                styles.change,
-                { color: isPositive ? theme.colors.success : theme.colors.error },
+                styles.changeContainer,
+                {
+                  backgroundColor:
+                    isPositive ? theme.colors.success + '15' : theme.colors.error + '15',
+                },
               ]}
             >
-              {formatPercentage(changePercent)}
-            </Text>
-          </View>
+              <Ionicons
+                name={isPositive ? 'trending-up' : 'trending-down'}
+                size={12}
+                color={isPositive ? theme.colors.success : theme.colors.error}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.change,
+                  { color: isPositive ? theme.colors.success : theme.colors.error },
+                ]}
+              >
+                {formattedChange}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.noQuoteText}>Quote unavailable</Text>
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -230,6 +239,10 @@ const styles = StyleSheet.create({
   change: {
     ...theme.typography.caption,
     fontWeight: '600',
+  },
+  noQuoteText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
   },
   separator: {
     height: 1,

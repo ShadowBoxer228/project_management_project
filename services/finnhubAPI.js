@@ -1,4 +1,7 @@
-const FINNHUB_API_KEY = 'd3scib9r01qs1aps7j90d3scib9r01qs1aps7j9g';
+const FINNHUB_API_KEY =
+  process.env?.EXPO_PUBLIC_FINNHUB_API_KEY ||
+  process.env?.FINNHUB_API_KEY ||
+  'd3scib9r01qs1aps7j90d3scib9r01qs1aps7j9g';
 const BASE_URL = 'https://finnhub.io/api/v1';
 
 // Cache for API responses to minimize API calls
@@ -26,7 +29,19 @@ export const getQuote = async (symbol) => {
     const response = await fetch(
       `${BASE_URL}/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub quote request failed:', response.status, response.statusText);
+      return null;
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub quote API error for symbol:', symbol, data.error);
+      return null;
+    }
+    if (!data || typeof data.c !== 'number') {
+      console.error('Finnhub quote payload invalid for symbol:', symbol, data);
+      return null;
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {
@@ -44,7 +59,15 @@ export const getCompanyProfile = async (symbol) => {
     const response = await fetch(
       `${BASE_URL}/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub company profile request failed:', response.status, response.statusText);
+      return null;
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub profile API error for symbol:', symbol, data.error);
+      return null;
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {
@@ -62,7 +85,15 @@ export const getCompanyNews = async (symbol, from, to) => {
     const response = await fetch(
       `${BASE_URL}/company-news?symbol=${symbol}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub company news request failed:', response.status, response.statusText);
+      return [];
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub company news API error:', data.error);
+      return [];
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {
@@ -80,7 +111,15 @@ export const getMarketNews = async () => {
     const response = await fetch(
       `${BASE_URL}/news?category=general&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub market news request failed:', response.status, response.statusText);
+      return [];
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub market news API error:', data.error);
+      return [];
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {
@@ -105,7 +144,15 @@ export const getEconomicCalendar = async () => {
     const response = await fetch(
       `${BASE_URL}/calendar/economic?from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub economic calendar request failed:', response.status, response.statusText);
+      return { economicCalendar: [] };
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub economic calendar API error:', data.error);
+      return { economicCalendar: [] };
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {
@@ -127,7 +174,15 @@ export const getEarningsCalendar = async () => {
     const response = await fetch(
       `${BASE_URL}/calendar/earnings?from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub earnings calendar request failed:', response.status, response.statusText);
+      return { earningsCalendar: [] };
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub earnings calendar API error:', data.error);
+      return { earningsCalendar: [] };
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {
@@ -145,7 +200,15 @@ export const getBasicFinancials = async (symbol) => {
     const response = await fetch(
       `${BASE_URL}/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`
     );
+    if (!response.ok) {
+      console.error('Finnhub basic financials request failed:', response.status, response.statusText);
+      return null;
+    }
     const data = await response.json();
+    if (data?.error) {
+      console.error('Finnhub financials API error for symbol:', symbol, data.error);
+      return null;
+    }
     setCachedData(cacheKey, data);
     return data;
   } catch (error) {

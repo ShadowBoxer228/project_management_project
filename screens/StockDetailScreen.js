@@ -118,10 +118,11 @@ export default function StockDetailScreen({ route }) {
     };
   }, [symbol]);
 
-  const currentPrice = quote?.c || 0;
-  const change = quote?.d || 0;
-  const changePercent = quote?.dp || 0;
-  const isPositive = change >= 0;
+  const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
+  const change = Number.isFinite(quote?.d) ? quote.d : null;
+  const changePercent = Number.isFinite(quote?.dp) ? quote.dp : null;
+  const isPositive =
+    changePercent !== null ? changePercent >= 0 : change !== null ? change >= 0 : null;
 
   const metrics = financials?.metric || {};
   const marketCap = parseNumber(overview?.MarketCapitalization ?? metrics['marketCapitalization']);
@@ -173,25 +174,29 @@ export default function StockDetailScreen({ route }) {
         </View>
         <View style={styles.priceContainer}>
           <Text style={styles.price}>{formatCurrency(currentPrice)}</Text>
-          <View
-            style={[
-              styles.changeContainer,
-              {
-                backgroundColor: isPositive
-                  ? theme.colors.success + '15'
-                  : theme.colors.error + '15',
-              },
-            ]}
-          >
-            <Text
+          {changePercent !== null ? (
+            <View
               style={[
-                styles.change,
-                { color: isPositive ? theme.colors.success : theme.colors.error },
+                styles.changeContainer,
+                {
+                  backgroundColor: isPositive
+                    ? theme.colors.success + '15'
+                    : theme.colors.error + '15',
+                },
               ]}
             >
-              {formatPercentage(changePercent)}
-            </Text>
-          </View>
+              <Text
+                style={[
+                  styles.change,
+                  { color: isPositive ? theme.colors.success : theme.colors.error },
+                ]}
+              >
+                {formatPercentage(changePercent)}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.changeUnavailable}>Change unavailable</Text>
+          )}
         </View>
       </View>
 
@@ -408,6 +413,11 @@ const styles = StyleSheet.create({
   change: {
     ...theme.typography.body,
     fontWeight: '600',
+  },
+  changeUnavailable: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
   },
   chartTypeContainer: {
     paddingHorizontal: theme.spacing.md,

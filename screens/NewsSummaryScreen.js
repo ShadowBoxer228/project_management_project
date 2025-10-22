@@ -542,12 +542,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing.sm,
   },
   eventSub: {
     ...theme.typography.small,
     color: theme.colors.textSecondary,
     textTransform: 'uppercase',
+  },
+  eventChangeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: theme.borderRadius.sm,
+    marginLeft: theme.spacing.sm,
+  },
+  eventChangePositive: {
+    backgroundColor: theme.colors.success + '15',
+  },
+  eventChangeNegative: {
+    backgroundColor: theme.colors.error + '15',
+  },
+  eventChangeNeutral: {
+    backgroundColor: theme.colors.textSecondary + '15',
+  },
+  eventChangeIcon: {
+    marginRight: 4,
+  },
+  eventChangeText: {
+    ...theme.typography.caption,
+    fontWeight: '600',
   },
   eventMeta: {
     flexDirection: 'row',
