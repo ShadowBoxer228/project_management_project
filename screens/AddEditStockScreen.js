@@ -86,8 +86,16 @@ const AddEditStockScreen = ({ navigation, route }) => {
       setFetchingPrice(true);
       const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${POLYGON_API_KEY}`;
 
+      if (__DEV__) {
+        console.log('[AddEditStock] Fetching price for:', symbol);
+      }
+
       const response = await fetch(url);
       const data = await response.json();
+
+      if (__DEV__) {
+        console.log('[AddEditStock] Price fetch response:', data.status, data.ticker?.lastTrade?.p || data.ticker?.day?.c);
+      }
 
       if (data.status === 'OK' && data.ticker) {
         const price = data.ticker.lastTrade?.p || data.ticker.day?.c;
@@ -95,11 +103,22 @@ const AddEditStockScreen = ({ navigation, route }) => {
           setCurrentPrice(price);
           if (mode === 'quick') {
             setPurchasePrice(price.toString());
+            if (__DEV__) {
+              console.log('[AddEditStock] Quick mode - set purchase price to:', price);
+            }
           }
+        } else {
+          if (__DEV__) {
+            console.log('[AddEditStock] No price found in ticker data');
+          }
+        }
+      } else {
+        if (__DEV__) {
+          console.log('[AddEditStock] Price fetch failed:', data);
         }
       }
     } catch (error) {
-      console.error('Error fetching price:', error);
+      console.error('[AddEditStock] Error fetching price:', error);
     } finally {
       setFetchingPrice(false);
     }
