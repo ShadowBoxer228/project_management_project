@@ -130,7 +130,7 @@ const PortfolioStats = ({ holdings, prices, companyProfiles }) => {
           <Text
             style={[
               styles.gainLoss,
-              { color: isPositive ? theme.colors.success : theme.colors.danger }
+              { color: isPositive ? theme.colors.success : theme.colors.error }
             ]}
           >
             {isPositive ? '+' : ''}{formatCurrency(stats.totalGainLoss)}
@@ -138,7 +138,7 @@ const PortfolioStats = ({ holdings, prices, companyProfiles }) => {
           <Text
             style={[
               styles.gainLossPercent,
-              { color: isPositive ? theme.colors.success : theme.colors.danger }
+              { color: isPositive ? theme.colors.success : theme.colors.error }
             ]}
           >
             ({isPositive ? '+' : ''}{formatPercentage(stats.totalGainLossPercent)})
@@ -167,7 +167,7 @@ const PortfolioStats = ({ holdings, prices, companyProfiles }) => {
             <View style={styles.performerItem}>
               <Text style={styles.performerLabel}>Worst</Text>
               <Text style={styles.performerSymbol}>{stats.topLoser.symbol}</Text>
-              <Text style={[styles.performerValue, { color: theme.colors.danger }]}>
+              <Text style={[styles.performerValue, { color: theme.colors.error }]}>
                 {formatPercentage(stats.topLoser.gainLossPercent)}
               </Text>
             </View>
@@ -239,27 +239,27 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: theme.spacing.md,
   },
   totalValue: {
     fontSize: 32,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
   gainLossRow: {
@@ -269,12 +269,12 @@ const styles = StyleSheet.create({
   },
   gainLoss: {
     fontSize: 18,
-    fontWeight: theme.typography.fontWeights.bold,
+    fontWeight: '700',
     marginRight: theme.spacing.xs,
   },
   gainLossPercent: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.medium,
+    fontWeight: '500',
   },
   divider: {
     height: 1,
@@ -288,12 +288,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   value: {
     fontSize: 14,
-    fontWeight: theme.typography.fontWeights.medium,
-    color: theme.colors.text.primary,
+    fontWeight: '500',
+    color: theme.colors.text,
   },
   performerRow: {
     flexDirection: 'row',
@@ -310,18 +310,18 @@ const styles = StyleSheet.create({
   },
   performerLabel: {
     fontSize: 12,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   performerSymbol: {
     fontSize: 18,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
   performerValue: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.bold,
+    fontWeight: '700',
   },
   sectorRow: {
     marginBottom: theme.spacing.md,
@@ -334,12 +334,12 @@ const styles = StyleSheet.create({
   },
   sectorName: {
     fontSize: 14,
-    fontWeight: theme.typography.fontWeights.medium,
-    color: theme.colors.text.primary,
+    fontWeight: '500',
+    color: theme.colors.text,
   },
   sectorValue: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   sectorBarContainer: {
     flexDirection: 'row',
@@ -358,8 +358,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: theme.spacing.sm,
     fontSize: 12,
-    fontWeight: theme.typography.fontWeights.medium,
-    color: theme.colors.text.primary,
+    fontWeight: '500',
+    color: theme.colors.text,
   },
   diversificationRow: {
     flexDirection: 'row',
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   diversificationHint: {
     marginTop: theme.spacing.sm,
     fontSize: 13,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
 });

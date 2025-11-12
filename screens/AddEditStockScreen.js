@@ -194,7 +194,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-          <Ionicons name="close" size={28} color={theme.colors.text.primary} />
+          <Ionicons name="close" size={28} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>{isEditMode ? 'Edit' : 'Add'} Stock</Text>
         <View style={{ width: 28 }} />
@@ -213,7 +213,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
               <Ionicons
                 name="search"
                 size={20}
-                color={theme.colors.text.secondary}
+                color={theme.colors.textSecondary}
                 style={styles.searchIcon}
               />
               <TextInput
@@ -222,7 +222,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoCapitalize="characters"
-                placeholderTextColor={theme.colors.text.secondary}
+                placeholderTextColor={theme.colors.textSecondary}
               />
             </View>
             {filteredStocks.length > 0 && (
@@ -301,7 +301,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
               value={shares}
               onChangeText={setShares}
               keyboardType="decimal-pad"
-              placeholderTextColor={theme.colors.text.secondary}
+              placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
         )}
@@ -318,7 +318,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
                 value={purchasePrice}
                 onChangeText={setPurchasePrice}
                 keyboardType="decimal-pad"
-                placeholderTextColor={theme.colors.text.secondary}
+                placeholderTextColor={theme.colors.textSecondary}
               />
             </View>
           </View>
@@ -333,7 +333,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
               placeholder="YYYY-MM-DD"
               value={purchaseDate}
               onChangeText={setPurchaseDate}
-              placeholderTextColor={theme.colors.text.secondary}
+              placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
         )}
@@ -350,7 +350,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              placeholderTextColor={theme.colors.text.secondary}
+              placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
         )}
@@ -408,8 +408,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   scrollView: {
     flex: 1,
@@ -420,17 +420,17 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: theme.typography.fontWeights.semibold,
-    color: theme.colors.text.primary,
+    fontWeight: '600',
+    color: theme.colors.text,
     marginBottom: theme.spacing.sm,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing.md,
-    ...theme.shadows.small,
+    ...theme.shadows.card,
   },
   searchIcon: {
     marginRight: theme.spacing.sm,
@@ -438,14 +438,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: theme.colors.text.primary,
+    color: theme.colors.text,
     paddingVertical: theme.spacing.md,
   },
   searchResults: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
     marginTop: theme.spacing.sm,
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   searchResultItem: {
     padding: theme.spacing.md,
@@ -454,34 +454,34 @@ const styles = StyleSheet.create({
   },
   searchResultSymbol: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: 2,
   },
   searchResultName: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   selectedStockCard: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   selectedStockInfo: {
     marginBottom: theme.spacing.sm,
   },
   selectedSymbol: {
     fontSize: 24,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   selectedName: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   priceInfo: {
     marginTop: theme.spacing.sm,
@@ -494,19 +494,19 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   priceValue: {
     fontSize: 18,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   modeToggle: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
     padding: 4,
-    ...theme.shadows.small,
+    ...theme.shadows.card,
   },
   modeButton: {
     flex: 1,
@@ -519,66 +519,70 @@ const styles = StyleSheet.create({
   },
   modeButtonText: {
     fontSize: 14,
-    fontWeight: theme.typography.fontWeights.medium,
-    color: theme.colors.text.secondary,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
   },
   modeButtonTextActive: {
     color: '#FFFFFF',
   },
   modeDescription: {
     fontSize: 12,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     marginTop: theme.spacing.sm,
     fontStyle: 'italic',
   },
   input: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     fontSize: 16,
-    color: theme.colors.text.primary,
-    ...theme.shadows.small,
+    color: theme.colors.text,
+    ...theme.shadows.card,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
-    ...theme.shadows.small,
+    ...theme.shadows.card,
   },
   inputPrefix: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.medium,
-    color: theme.colors.text.secondary,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
     paddingLeft: theme.spacing.md,
   },
   inputWithPrefix: {
     flex: 1,
     backgroundColor: 'transparent',
-    ...theme.shadows.none,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   textArea: {
     height: 100,
     paddingTop: theme.spacing.md,
   },
   summaryCard: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
     alignItems: 'center',
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   summaryLabel: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   summaryValue: {
     fontSize: 28,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   footer: {
     padding: theme.spacing.lg,
@@ -591,14 +595,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     paddingVertical: theme.spacing.md,
     alignItems: 'center',
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.bold,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
 });

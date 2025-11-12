@@ -211,7 +211,7 @@ const PortfolioScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
         <View style={styles.emptyContainer}>
-          <Ionicons name="briefcase-outline" size={80} color={theme.colors.text.secondary} />
+          <Ionicons name="briefcase-outline" size={80} color={theme.colors.textSecondary} />
           <Text style={styles.emptyTitle}>Your Portfolio is Empty</Text>
           <Text style={styles.emptyText}>
             Start building your portfolio by adding stocks
@@ -256,7 +256,7 @@ const PortfolioScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.gainLoss,
-                { color: isPositive ? theme.colors.success : theme.colors.danger }
+                { color: isPositive ? theme.colors.success : theme.colors.error }
               ]}
             >
               {isPositive ? '+' : ''}{formatCurrency(summary.gainLoss)}
@@ -264,7 +264,7 @@ const PortfolioScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.gainLossPercent,
-                { color: isPositive ? theme.colors.success : theme.colors.danger }
+                { color: isPositive ? theme.colors.success : theme.colors.error }
               ]}
             >
               ({isPositive ? '+' : ''}{formatPercentage(summary.gainLossPercent)})
@@ -349,8 +349,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   addButton: {
     padding: theme.spacing.xs,
@@ -359,23 +359,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryCard: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
     alignItems: 'center',
   },
   summaryLabel: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   summaryValue: {
     fontSize: 36,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
   gainLossRow: {
@@ -384,37 +384,37 @@ const styles = StyleSheet.create({
   },
   gainLoss: {
     fontSize: 18,
-    fontWeight: theme.typography.fontWeights.bold,
+    fontWeight: '700',
     marginRight: theme.spacing.xs,
   },
   gainLossPercent: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.medium,
+    fontWeight: '500',
   },
   toggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.small,
+    ...theme.shadows.card,
   },
   toggleText: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.medium,
+    fontWeight: '500',
     color: theme.colors.primary,
     marginRight: theme.spacing.xs,
   },
   insightsCard: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   insightsHeader: {
     flexDirection: 'row',
@@ -423,23 +423,23 @@ const styles = StyleSheet.create({
   },
   insightsTitle: {
     fontSize: 18,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginLeft: theme.spacing.sm,
   },
   insightsText: {
     fontSize: 14,
     lineHeight: 22,
-    color: theme.colors.text.primary,
+    color: theme.colors.text,
   },
   insightsError: {
     fontSize: 14,
-    color: theme.colors.danger,
+    color: theme.colors.error,
     fontStyle: 'italic',
   },
   insightsPlaceholder: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
   section: {
@@ -447,8 +447,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
   },
@@ -460,14 +460,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 24,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
   },
   emptyText: {
     fontSize: 16,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
   },
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.semibold,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
 });

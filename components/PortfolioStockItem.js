@@ -53,14 +53,14 @@ const PortfolioStockItem = ({
             onPress={() => onEdit(holding)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="create-outline" size={20} color={theme.colors.text.secondary} />
+            <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleDelete}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ marginLeft: theme.spacing.md }}
           >
-            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+            <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -88,10 +88,10 @@ const PortfolioStockItem = ({
         <View style={styles.row}>
           <Text style={styles.labelBold}>Gain/Loss:</Text>
           <View style={styles.gainLossContainer}>
-            <Text style={[styles.gainLoss, { color: isPositive ? theme.colors.success : theme.colors.danger }]}>
+            <Text style={[styles.gainLoss, { color: isPositive ? theme.colors.success : theme.colors.error }]}>
               {isPositive ? '+' : ''}{formatCurrency(gainLoss)}
             </Text>
-            <Text style={[styles.gainLossPercent, { color: isPositive ? theme.colors.success : theme.colors.danger }]}>
+            <Text style={[styles.gainLossPercent, { color: isPositive ? theme.colors.success : theme.colors.error }]}>
               ({isPositive ? '+' : ''}{formatPercentage(gainLossPercent)})
             </Text>
           </View>
@@ -110,12 +110,12 @@ const PortfolioStockItem = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.medium,
+    ...theme.shadows.card,
   },
   header: {
     flexDirection: 'row',
@@ -128,13 +128,13 @@ const styles = StyleSheet.create({
   },
   symbol: {
     fontSize: 20,
-    fontWeight: theme.typography.fontWeights.bold,
-    color: theme.colors.text.primary,
+    fontWeight: '700',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   shares: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   actions: {
     flexDirection: 'row',
@@ -151,16 +151,16 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
   },
   labelBold: {
     fontSize: 15,
-    fontWeight: theme.typography.fontWeights.semibold,
-    color: theme.colors.text.primary,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
   value: {
     fontSize: 14,
-    color: theme.colors.text.primary,
+    color: theme.colors.text,
   },
   divider: {
     height: 1,
@@ -173,12 +173,12 @@ const styles = StyleSheet.create({
   },
   gainLoss: {
     fontSize: 16,
-    fontWeight: theme.typography.fontWeights.bold,
+    fontWeight: '700',
     marginRight: theme.spacing.xs,
   },
   gainLossPercent: {
     fontSize: 14,
-    fontWeight: theme.typography.fontWeights.medium,
+    fontWeight: '500',
   },
   notesContainer: {
     marginTop: theme.spacing.md,
@@ -188,12 +188,12 @@ const styles = StyleSheet.create({
   },
   notesLabel: {
     fontSize: 12,
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   notes: {
     fontSize: 14,
-    color: theme.colors.text.primary,
+    color: theme.colors.text,
     fontStyle: 'italic',
   },
 });
