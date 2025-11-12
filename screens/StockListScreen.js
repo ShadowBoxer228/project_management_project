@@ -8,6 +8,8 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
@@ -21,6 +23,21 @@ const debugLog = (...args) => {
     console.log('[StockList]', ...args);
   }
 };
+
+// Get unique sectors from data
+const SECTORS = ['All', ...new Set(sp100Data.map((stock) => stock.sector))].sort();
+
+// Sort options
+const SORT_OPTIONS = [
+  { id: 'symbol-asc', label: 'Symbol (A-Z)', icon: 'text-outline' },
+  { id: 'symbol-desc', label: 'Symbol (Z-A)', icon: 'text-outline' },
+  { id: 'name-asc', label: 'Name (A-Z)', icon: 'list-outline' },
+  { id: 'name-desc', label: 'Name (Z-A)', icon: 'list-outline' },
+  { id: 'marketcap-desc', label: 'Market Cap (High to Low)', icon: 'trending-up' },
+  { id: 'marketcap-asc', label: 'Market Cap (Low to High)', icon: 'trending-down' },
+  { id: 'change-desc', label: 'Change % (High to Low)', icon: 'arrow-up' },
+  { id: 'change-asc', label: 'Change % (Low to High)', icon: 'arrow-down' },
+];
 
 const StockListItem = ({ item, quote, onPress }) => {
   const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
@@ -91,6 +108,9 @@ export default function StockListScreen({ navigation }) {
   const [filteredStocks, setFilteredStocks] = useState(sp100Data);
   const [quotes, setQuotes] = useState({});
   const [loading, setLoading] = useState(true);
+  const [selectedSector, setSelectedSector] = useState('All');
+  const [sortBy, setSortBy] = useState('symbol-asc');
+  const [showSortModal, setShowSortModal] = useState(false);
 
   // Fetch all quotes in bulk
   const fetchAllQuotes = async () => {
@@ -112,19 +132,56 @@ export default function StockListScreen({ navigation }) {
     fetchAllQuotes();
   }, []);
 
-  // Filter stocks based on search query
+  // Filter and sort stocks based on search query, sector, and sort option
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredStocks(sp100Data);
-    } else {
-      const filtered = sp100Data.filter(
+    let result = [...sp100Data];
+
+    // Filter by search query
+    if (searchQuery.trim() !== '') {
+      result = result.filter(
         (stock) =>
           stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
           stock.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredStocks(filtered);
     }
-  }, [searchQuery]);
+
+    // Filter by sector
+    if (selectedSector !== 'All') {
+      result = result.filter((stock) => stock.sector === selectedSector);
+    }
+
+    // Sort stocks
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'symbol-asc':
+          return a.symbol.localeCompare(b.symbol);
+        case 'symbol-desc':
+          return b.symbol.localeCompare(a.symbol);
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'marketcap-desc':
+          return (b.marketCap || 0) - (a.marketCap || 0);
+        case 'marketcap-asc':
+          return (a.marketCap || 0) - (b.marketCap || 0);
+        case 'change-desc': {
+          const aChange = quotes[a.symbol]?.dp ?? -Infinity;
+          const bChange = quotes[b.symbol]?.dp ?? -Infinity;
+          return bChange - aChange;
+        }
+        case 'change-asc': {
+          const aChange = quotes[a.symbol]?.dp ?? Infinity;
+          const bChange = quotes[b.symbol]?.dp ?? Infinity;
+          return aChange - bChange;
+        }
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredStocks(result);
+  }, [searchQuery, selectedSector, sortBy, quotes]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -165,6 +222,50 @@ export default function StockListScreen({ navigation }) {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Filter and Sort Controls */}
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sectorChipsContainer}
+        >
+          {SECTORS.map((sector) => (
+            <TouchableOpacity
+              key={sector}
+              style={[
+                styles.sectorChip,
+                selectedSector === sector && styles.sectorChipSelected,
+              ]}
+              onPress={() => setSelectedSector(sector)}
+            >
+              <Text
+                style={[
+                  styles.sectorChipText,
+                  selectedSector === sector && styles.sectorChipTextSelected,
+                ]}
+              >
+                {sector}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity
+          style={styles.sortButton}
+          onPress={() => setShowSortModal(true)}
+        >
+          <Ionicons name="swap-vertical" size={18} color={theme.colors.primary} />
+          <Text style={styles.sortButtonText}>Sort</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Results count */}
+      <View style={styles.resultsContainer}>
+        <Text style={styles.resultsText}>
+          {filteredStocks.length} {filteredStocks.length === 1 ? 'stock' : 'stocks'}
+        </Text>
+      </View>
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -188,6 +289,58 @@ export default function StockListScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      {/* Sort Modal */}
+      <Modal
+        visible={showSortModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSortModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSortModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sort By</Text>
+              <TouchableOpacity onPress={() => setShowSortModal(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {SORT_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={styles.sortOption}
+                  onPress={() => {
+                    setSortBy(option.id);
+                    setShowSortModal(false);
+                  }}
+                >
+                  <Ionicons
+                    name={option.icon}
+                    size={20}
+                    color={sortBy === option.id ? theme.colors.primary : theme.colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      sortBy === option.id && styles.sortOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {sortBy === option.id && (
+                    <Ionicons name="checkmark" size={20} color={theme.colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -276,5 +429,102 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.md,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  sectorChipsContainer: {
+    paddingRight: theme.spacing.sm,
+  },
+  sectorChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginRight: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  sectorChipSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  sectorChipText: {
+    ...theme.typography.caption,
+    color: theme.colors.text,
+    fontWeight: '500',
+  },
+  sectorChipTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginRight: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  sortButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.primary,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  resultsContainer: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  resultsText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.cardBackground,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    paddingBottom: theme.spacing.xl,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    ...theme.typography.h2,
+    color: theme.colors.text,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  sortOptionText: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    flex: 1,
+    marginLeft: theme.spacing.md,
+  },
+  sortOptionTextSelected: {
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
 });

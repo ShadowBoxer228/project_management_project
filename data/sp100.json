@@ -1,101 +1,596 @@
 [
-  { "symbol": "AAPL", "name": "Apple Inc." },
-  { "symbol": "MSFT", "name": "Microsoft Corporation" },
-  { "symbol": "GOOGL", "name": "Alphabet Inc. Class A" },
-  { "symbol": "AMZN", "name": "Amazon.com Inc." },
-  { "symbol": "NVDA", "name": "NVIDIA Corporation" },
-  { "symbol": "META", "name": "Meta Platforms Inc." },
-  { "symbol": "TSLA", "name": "Tesla Inc." },
-  { "symbol": "BRK.B", "name": "Berkshire Hathaway Inc. Class B" },
-  { "symbol": "JPM", "name": "JPMorgan Chase & Co." },
-  { "symbol": "V", "name": "Visa Inc." },
-  { "symbol": "UNH", "name": "UnitedHealth Group Inc." },
-  { "symbol": "JNJ", "name": "Johnson & Johnson" },
-  { "symbol": "WMT", "name": "Walmart Inc." },
-  { "symbol": "XOM", "name": "Exxon Mobil Corporation" },
-  { "symbol": "MA", "name": "Mastercard Inc." },
-  { "symbol": "PG", "name": "Procter & Gamble Co." },
-  { "symbol": "HD", "name": "The Home Depot Inc." },
-  { "symbol": "CVX", "name": "Chevron Corporation" },
-  { "symbol": "ABBV", "name": "AbbVie Inc." },
-  { "symbol": "MRK", "name": "Merck & Co. Inc." },
-  { "symbol": "KO", "name": "The Coca-Cola Company" },
-  { "symbol": "PEP", "name": "PepsiCo Inc." },
-  { "symbol": "COST", "name": "Costco Wholesale Corporation" },
-  { "symbol": "AVGO", "name": "Broadcom Inc." },
-  { "symbol": "LLY", "name": "Eli Lilly and Company" },
-  { "symbol": "ADBE", "name": "Adobe Inc." },
-  { "symbol": "TMO", "name": "Thermo Fisher Scientific Inc." },
-  { "symbol": "MCD", "name": "McDonald's Corporation" },
-  { "symbol": "CSCO", "name": "Cisco Systems Inc." },
-  { "symbol": "ACN", "name": "Accenture plc" },
-  { "symbol": "ABT", "name": "Abbott Laboratories" },
-  { "symbol": "NKE", "name": "NIKE Inc." },
-  { "symbol": "CRM", "name": "Salesforce Inc." },
-  { "symbol": "NFLX", "name": "Netflix Inc." },
-  { "symbol": "DHR", "name": "Danaher Corporation" },
-  { "symbol": "ORCL", "name": "Oracle Corporation" },
-  { "symbol": "VZ", "name": "Verizon Communications Inc." },
-  { "symbol": "INTC", "name": "Intel Corporation" },
-  { "symbol": "WFC", "name": "Wells Fargo & Company" },
-  { "symbol": "CMCSA", "name": "Comcast Corporation" },
-  { "symbol": "AMD", "name": "Advanced Micro Devices Inc." },
-  { "symbol": "PFE", "name": "Pfizer Inc." },
-  { "symbol": "DIS", "name": "The Walt Disney Company" },
-  { "symbol": "TXN", "name": "Texas Instruments Inc." },
-  { "symbol": "PM", "name": "Philip Morris International Inc." },
-  { "symbol": "NEE", "name": "NextEra Energy Inc." },
-  { "symbol": "COP", "name": "ConocoPhillips" },
-  { "symbol": "UNP", "name": "Union Pacific Corporation" },
-  { "symbol": "RTX", "name": "Raytheon Technologies Corporation" },
-  { "symbol": "HON", "name": "Honeywell International Inc." },
-  { "symbol": "LOW", "name": "Lowe's Companies Inc." },
-  { "symbol": "QCOM", "name": "QUALCOMM Inc." },
-  { "symbol": "BA", "name": "The Boeing Company" },
-  { "symbol": "BMY", "name": "Bristol-Myers Squibb Company" },
-  { "symbol": "AMAT", "name": "Applied Materials Inc." },
-  { "symbol": "UPS", "name": "United Parcel Service Inc." },
-  { "symbol": "SBUX", "name": "Starbucks Corporation" },
-  { "symbol": "GE", "name": "General Electric Company" },
-  { "symbol": "MS", "name": "Morgan Stanley" },
-  { "symbol": "LMT", "name": "Lockheed Martin Corporation" },
-  { "symbol": "GS", "name": "The Goldman Sachs Group Inc." },
-  { "symbol": "CAT", "name": "Caterpillar Inc." },
-  { "symbol": "AXP", "name": "American Express Company" },
-  { "symbol": "CVS", "name": "CVS Health Corporation" },
-  { "symbol": "IBM", "name": "International Business Machines Corporation" },
-  { "symbol": "GILD", "name": "Gilead Sciences Inc." },
-  { "symbol": "BLK", "name": "BlackRock Inc." },
-  { "symbol": "MMC", "name": "Marsh & McLennan Companies Inc." },
-  { "symbol": "MDLZ", "name": "Mondelez International Inc." },
-  { "symbol": "AMT", "name": "American Tower Corporation" },
-  { "symbol": "ISRG", "name": "Intuitive Surgical Inc." },
-  { "symbol": "NOW", "name": "ServiceNow Inc." },
-  { "symbol": "BKNG", "name": "Booking Holdings Inc." },
-  { "symbol": "TGT", "name": "Target Corporation" },
-  { "symbol": "CI", "name": "Cigna Corporation" },
-  { "symbol": "MO", "name": "Altria Group Inc." },
-  { "symbol": "ZTS", "name": "Zoetis Inc." },
-  { "symbol": "PLD", "name": "Prologis Inc." },
-  { "symbol": "CB", "name": "Chubb Limited" },
-  { "symbol": "SYK", "name": "Stryker Corporation" },
-  { "symbol": "USB", "name": "U.S. Bancorp" },
-  { "symbol": "C", "name": "Citigroup Inc." },
-  { "symbol": "REGN", "name": "Regeneron Pharmaceuticals Inc." },
-  { "symbol": "SO", "name": "The Southern Company" },
-  { "symbol": "DUK", "name": "Duke Energy Corporation" },
-  { "symbol": "VRTX", "name": "Vertex Pharmaceuticals Inc." },
-  { "symbol": "BSX", "name": "Boston Scientific Corporation" },
-  { "symbol": "SPGI", "name": "S&P Global Inc." },
-  { "symbol": "AON", "name": "Aon plc" },
-  { "symbol": "SCHW", "name": "The Charles Schwab Corporation" },
-  { "symbol": "EL", "name": "The Estée Lauder Companies Inc." },
-  { "symbol": "MMM", "name": "3M Company" },
-  { "symbol": "DE", "name": "Deere & Company" },
-  { "symbol": "FIS", "name": "Fidelity National Information Services Inc." },
-  { "symbol": "TJX", "name": "The TJX Companies Inc." },
-  { "symbol": "SLB", "name": "Schlumberger Limited" },
-  { "symbol": "NSC", "name": "Norfolk Southern Corporation" },
-  { "symbol": "HCA", "name": "HCA Healthcare Inc." },
-  { "symbol": "PNC", "name": "The PNC Financial Services Group Inc." }
+  {
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation",
+    "sector": "Information Technology",
+    "marketCap": 4680000
+  },
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "sector": "Information Technology",
+    "marketCap": 4060000
+  },
+  {
+    "symbol": "MSFT",
+    "name": "Microsoft Corporation",
+    "sector": "Information Technology",
+    "marketCap": 3730000
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "Alphabet Inc. Class A",
+    "sector": "Communication Services",
+    "marketCap": 3440000
+  },
+  {
+    "symbol": "AMZN",
+    "name": "Amazon.com Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 2620000
+  },
+  {
+    "symbol": "AVGO",
+    "name": "Broadcom Inc.",
+    "sector": "Information Technology",
+    "marketCap": 1680000
+  },
+  {
+    "symbol": "META",
+    "name": "Meta Platforms Inc.",
+    "sector": "Communication Services",
+    "marketCap": 1540000
+  },
+  {
+    "symbol": "TSLA",
+    "name": "Tesla Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 1430000
+  },
+  {
+    "symbol": "BRK.B",
+    "name": "Berkshire Hathaway Inc. Class B",
+    "sector": "Financials",
+    "marketCap": 1070000
+  },
+  {
+    "symbol": "LLY",
+    "name": "Eli Lilly and Company",
+    "sector": "Health Care",
+    "marketCap": 898310
+  },
+  {
+    "symbol": "JPM",
+    "name": "JPMorgan Chase & Co.",
+    "sector": "Financials",
+    "marketCap": 873440
+  },
+  {
+    "symbol": "WMT",
+    "name": "Walmart Inc.",
+    "sector": "Consumer Staples",
+    "marketCap": 822560
+  },
+  {
+    "symbol": "V",
+    "name": "Visa Inc.",
+    "sector": "Financials",
+    "marketCap": 652360
+  },
+  {
+    "symbol": "ORCL",
+    "name": "Oracle Corporation",
+    "sector": "Information Technology",
+    "marketCap": 649720
+  },
+  {
+    "symbol": "MA",
+    "name": "Mastercard Inc.",
+    "sector": "Financials",
+    "marketCap": 505300
+  },
+  {
+    "symbol": "XOM",
+    "name": "Exxon Mobil Corporation",
+    "sector": "Energy",
+    "marketCap": 500750
+  },
+  {
+    "symbol": "NFLX",
+    "name": "Netflix Inc.",
+    "sector": "Communication Services",
+    "marketCap": 482830
+  },
+  {
+    "symbol": "JNJ",
+    "name": "Johnson & Johnson",
+    "sector": "Health Care",
+    "marketCap": 468250
+  },
+  {
+    "symbol": "AMD",
+    "name": "Advanced Micro Devices Inc.",
+    "sector": "Information Technology",
+    "marketCap": 422790
+  },
+  {
+    "symbol": "ABBV",
+    "name": "AbbVie Inc.",
+    "sector": "Health Care",
+    "marketCap": 405690
+  },
+  {
+    "symbol": "COST",
+    "name": "Costco Wholesale Corporation",
+    "sector": "Consumer Staples",
+    "marketCap": 405550
+  },
+  {
+    "symbol": "HD",
+    "name": "The Home Depot Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 367640
+  },
+  {
+    "symbol": "PG",
+    "name": "Procter & Gamble Co.",
+    "sector": "Consumer Staples",
+    "marketCap": 346910
+  },
+  {
+    "symbol": "GE",
+    "name": "General Electric Company",
+    "sector": "Industrials",
+    "marketCap": 323620
+  },
+  {
+    "symbol": "KO",
+    "name": "The Coca-Cola Company",
+    "sector": "Consumer Staples",
+    "marketCap": 308900
+  },
+  {
+    "symbol": "CVX",
+    "name": "Chevron Corporation",
+    "sector": "Energy",
+    "marketCap": 307260
+  },
+  {
+    "symbol": "UNH",
+    "name": "UnitedHealth Group Inc.",
+    "sector": "Health Care",
+    "marketCap": 305630
+  },
+  {
+    "symbol": "IBM",
+    "name": "International Business Machines Corporation",
+    "sector": "Information Technology",
+    "marketCap": 299730
+  },
+  {
+    "symbol": "CSCO",
+    "name": "Cisco Systems Inc.",
+    "sector": "Information Technology",
+    "marketCap": 287950
+  },
+  {
+    "symbol": "WFC",
+    "name": "Wells Fargo & Company",
+    "sector": "Financials",
+    "marketCap": 273350
+  },
+  {
+    "symbol": "MS",
+    "name": "Morgan Stanley",
+    "sector": "Financials",
+    "marketCap": 271550
+  },
+  {
+    "symbol": "CAT",
+    "name": "Caterpillar Inc.",
+    "sector": "Industrials",
+    "marketCap": 270150
+  },
+  {
+    "symbol": "GS",
+    "name": "The Goldman Sachs Group Inc.",
+    "sector": "Financials",
+    "marketCap": 261500
+  },
+  {
+    "symbol": "AXP",
+    "name": "American Express Company",
+    "sector": "Financials",
+    "marketCap": 258490
+  },
+  {
+    "symbol": "PM",
+    "name": "Philip Morris International Inc.",
+    "sector": "Consumer Staples",
+    "marketCap": 244390
+  },
+  {
+    "symbol": "RTX",
+    "name": "Raytheon Technologies Corporation",
+    "sector": "Industrials",
+    "marketCap": 240410
+  },
+  {
+    "symbol": "CRM",
+    "name": "Salesforce Inc.",
+    "sector": "Information Technology",
+    "marketCap": 233520
+  },
+  {
+    "symbol": "MRK",
+    "name": "Merck & Co. Inc.",
+    "sector": "Health Care",
+    "marketCap": 228450
+  },
+  {
+    "symbol": "ABT",
+    "name": "Abbott Laboratories",
+    "sector": "Health Care",
+    "marketCap": 222630
+  },
+  {
+    "symbol": "TMO",
+    "name": "Thermo Fisher Scientific Inc.",
+    "sector": "Health Care",
+    "marketCap": 220710
+  },
+  {
+    "symbol": "MCD",
+    "name": "McDonald's Corporation",
+    "sector": "Consumer Discretionary",
+    "marketCap": 218920
+  },
+  {
+    "symbol": "DIS",
+    "name": "The Walt Disney Company",
+    "sector": "Communication Services",
+    "marketCap": 208270
+  },
+  {
+    "symbol": "ISRG",
+    "name": "Intuitive Surgical Inc.",
+    "sector": "Health Care",
+    "marketCap": 203310
+  },
+  {
+    "symbol": "PEP",
+    "name": "PepsiCo Inc.",
+    "sector": "Consumer Staples",
+    "marketCap": 198670
+  },
+  {
+    "symbol": "QCOM",
+    "name": "QUALCOMM Inc.",
+    "sector": "Information Technology",
+    "marketCap": 189270
+  },
+  {
+    "symbol": "C",
+    "name": "Citigroup Inc.",
+    "sector": "Financials",
+    "marketCap": 184870
+  },
+  {
+    "symbol": "AMAT",
+    "name": "Applied Materials Inc.",
+    "sector": "Information Technology",
+    "marketCap": 183940
+  },
+  {
+    "symbol": "INTC",
+    "name": "Intel Corporation",
+    "sector": "Information Technology",
+    "marketCap": 181280
+  },
+  {
+    "symbol": "BLK",
+    "name": "BlackRock Inc.",
+    "sector": "Financials",
+    "marketCap": 178430
+  },
+  {
+    "symbol": "NEE",
+    "name": "NextEra Energy Inc.",
+    "sector": "Utilities",
+    "marketCap": 177280
+  },
+  {
+    "symbol": "NOW",
+    "name": "ServiceNow Inc.",
+    "sector": "Information Technology",
+    "marketCap": 177260
+  },
+  {
+    "symbol": "SCHW",
+    "name": "The Charles Schwab Corporation",
+    "sector": "Financials",
+    "marketCap": 173490
+  },
+  {
+    "symbol": "VZ",
+    "name": "Verizon Communications Inc.",
+    "sector": "Communication Services",
+    "marketCap": 172410
+  },
+  {
+    "symbol": "BKNG",
+    "name": "Booking Holdings Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 163390
+  },
+  {
+    "symbol": "TJX",
+    "name": "The TJX Companies Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 163360
+  },
+  {
+    "symbol": "GILD",
+    "name": "Gilead Sciences Inc.",
+    "sector": "Health Care",
+    "marketCap": 154790
+  },
+  {
+    "symbol": "BSX",
+    "name": "Boston Scientific Corporation",
+    "sector": "Health Care",
+    "marketCap": 154250
+  },
+  {
+    "symbol": "DHR",
+    "name": "Danaher Corporation",
+    "sector": "Health Care",
+    "marketCap": 154050
+  },
+  {
+    "symbol": "SPGI",
+    "name": "S&P Global Inc.",
+    "sector": "Financials",
+    "marketCap": 150810
+  },
+  {
+    "symbol": "ACN",
+    "name": "Accenture plc",
+    "sector": "Information Technology",
+    "marketCap": 150800
+  },
+  {
+    "symbol": "TXN",
+    "name": "Texas Instruments Inc.",
+    "sector": "Information Technology",
+    "marketCap": 149050
+  },
+  {
+    "symbol": "BA",
+    "name": "The Boeing Company",
+    "sector": "Industrials",
+    "marketCap": 148380
+  },
+  {
+    "symbol": "PFE",
+    "name": "Pfizer Inc.",
+    "sector": "Health Care",
+    "marketCap": 145670
+  },
+  {
+    "symbol": "SYK",
+    "name": "Stryker Corporation",
+    "sector": "Health Care",
+    "marketCap": 141230
+  },
+  {
+    "symbol": "ADBE",
+    "name": "Adobe Inc.",
+    "sector": "Information Technology",
+    "marketCap": 140780
+  },
+  {
+    "symbol": "UNP",
+    "name": "Union Pacific Corporation",
+    "sector": "Industrials",
+    "marketCap": 134080
+  },
+  {
+    "symbol": "LOW",
+    "name": "Lowe's Companies Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 131380
+  },
+  {
+    "symbol": "DE",
+    "name": "Deere & Company",
+    "sector": "Industrials",
+    "marketCap": 130840
+  },
+  {
+    "symbol": "HON",
+    "name": "Honeywell International Inc.",
+    "sector": "Industrials",
+    "marketCap": 127890
+  },
+  {
+    "symbol": "PLD",
+    "name": "Prologis Inc.",
+    "sector": "Real Estate",
+    "marketCap": 119630
+  },
+  {
+    "symbol": "CB",
+    "name": "Chubb Limited",
+    "sector": "Financials",
+    "marketCap": 115480
+  },
+  {
+    "symbol": "COP",
+    "name": "ConocoPhillips",
+    "sector": "Energy",
+    "marketCap": 110840
+  },
+  {
+    "symbol": "VRTX",
+    "name": "Vertex Pharmaceuticals Inc.",
+    "sector": "Health Care",
+    "marketCap": 109490
+  },
+  {
+    "symbol": "HCA",
+    "name": "HCA Healthcare Inc.",
+    "sector": "Health Care",
+    "marketCap": 108390
+  },
+  {
+    "symbol": "LMT",
+    "name": "Lockheed Martin Corporation",
+    "sector": "Industrials",
+    "marketCap": 105980
+  },
+  {
+    "symbol": "CVS",
+    "name": "CVS Health Corporation",
+    "sector": "Health Care",
+    "marketCap": 102870
+  },
+  {
+    "symbol": "CMCSA",
+    "name": "Comcast Corporation",
+    "sector": "Communication Services",
+    "marketCap": 100860
+  },
+  {
+    "symbol": "BMY",
+    "name": "Bristol-Myers Squibb Company",
+    "sector": "Health Care",
+    "marketCap": 100670
+  },
+  {
+    "symbol": "SO",
+    "name": "The Southern Company",
+    "sector": "Utilities",
+    "marketCap": 100320
+  },
+  {
+    "symbol": "SBUX",
+    "name": "Starbucks Corporation",
+    "sector": "Consumer Discretionary",
+    "marketCap": 99960
+  },
+  {
+    "symbol": "MO",
+    "name": "Altria Group Inc.",
+    "sector": "Consumer Staples",
+    "marketCap": 98470
+  },
+  {
+    "symbol": "DUK",
+    "name": "Duke Energy Corporation",
+    "sector": "Utilities",
+    "marketCap": 96040
+  },
+  {
+    "symbol": "NKE",
+    "name": "NIKE Inc.",
+    "sector": "Consumer Discretionary",
+    "marketCap": 94630
+  },
+  {
+    "symbol": "MMM",
+    "name": "3M Company",
+    "sector": "Industrials",
+    "marketCap": 90660
+  },
+  {
+    "symbol": "MMC",
+    "name": "Marsh & McLennan Companies Inc.",
+    "sector": "Financials",
+    "marketCap": 89280
+  },
+  {
+    "symbol": "AMT",
+    "name": "American Tower Corporation",
+    "sector": "Real Estate",
+    "marketCap": 85710
+  },
+  {
+    "symbol": "UPS",
+    "name": "United Parcel Service Inc.",
+    "sector": "Industrials",
+    "marketCap": 81120
+  },
+  {
+    "symbol": "AON",
+    "name": "Aon plc",
+    "sector": "Financials",
+    "marketCap": 74800
+  },
+  {
+    "symbol": "USB",
+    "name": "U.S. Bancorp",
+    "sector": "Financials",
+    "marketCap": 74450
+  },
+  {
+    "symbol": "MDLZ",
+    "name": "Mondelez International Inc.",
+    "sector": "Consumer Staples",
+    "marketCap": 74090
+  },
+  {
+    "symbol": "CI",
+    "name": "Cigna Corporation",
+    "sector": "Health Care",
+    "marketCap": 73170
+  },
+  {
+    "symbol": "PNC",
+    "name": "The PNC Financial Services Group Inc.",
+    "sector": "Financials",
+    "marketCap": 72870
+  },
+  {
+    "symbol": "REGN",
+    "name": "Regeneron Pharmaceuticals Inc.",
+    "sector": "Health Care",
+    "marketCap": 69000
+  },
+  {
+    "symbol": "NSC",
+    "name": "Norfolk Southern Corporation",
+    "sector": "Industrials",
+    "marketCap": 64000
+  },
+  {
+    "symbol": "ZTS",
+    "name": "Zoetis Inc.",
+    "sector": "Health Care",
+    "marketCap": 53000
+  },
+  {
+    "symbol": "SLB",
+    "name": "Schlumberger Limited",
+    "sector": "Energy",
+    "marketCap": 53000
+  },
+  {
+    "symbol": "TGT",
+    "name": "Target Corporation",
+    "sector": "Consumer Staples",
+    "marketCap": 42000
+  },
+  {
+    "symbol": "FIS",
+    "name": "Fidelity National Information Services Inc.",
+    "sector": "Information Technology",
+    "marketCap": 34000
+  },
+  {
+    "symbol": "EL",
+    "name": "The Estee Lauder Companies Inc.",
+    "sector": "Consumer Staples",
+    "marketCap": 33000
+  }
 ]
