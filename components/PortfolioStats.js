@@ -243,7 +243,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    fontWeight: '500',
+    color: '#4A4A4A',
   },
   value: {
     fontSize: 14,

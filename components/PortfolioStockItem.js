@@ -151,7 +151,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    fontWeight: '500',
+    color: '#4A4A4A',
   },
   labelBold: {
     fontSize: 15,
@@ -188,7 +189,8 @@ const styles = StyleSheet.create({
   },
   notesLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    fontWeight: '500',
+    color: '#4A4A4A',
     marginBottom: 4,
   },
   notes: {
