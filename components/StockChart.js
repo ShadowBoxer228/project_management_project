@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useSharedValue, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, runOnJS } from 'react-native-reanimated';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
@@ -533,9 +533,8 @@ export default function StockChart({
 
       <View style={styles.chartContainer}>
         {chartMode === 'navigate' ? (
-          <GestureDetector gesture={composedGestures}>
-            <View style={styles.chartWrapper}>
-              {chartType === 'candle' ? (
+          <View style={styles.chartWrapper}>
+            {chartType === 'candle' ? (
               <CandlestickChart.Provider data={visibleData}>
                 <CandlestickChart
                   height={CHART_HEIGHT}
@@ -545,17 +544,6 @@ export default function StockChart({
                     positiveColor={theme.colors.success}
                     negativeColor={theme.colors.error}
                   />
-                  <CandlestickChart.Crosshair>
-                    <CandlestickChart.Tooltip>
-                      {({ data: tooltipData }) => (
-                        <ChartTooltip
-                          data={tooltipData}
-                          chartType="candle"
-                          timeRange={timeRange}
-                        />
-                      )}
-                    </CandlestickChart.Tooltip>
-                  </CandlestickChart.Crosshair>
                 </CandlestickChart>
               </CandlestickChart.Provider>
             ) : (
@@ -572,27 +560,18 @@ export default function StockChart({
                       color={isPositive ? theme.colors.success : theme.colors.error}
                     />
                   </LineChart.Path>
-                  <LineChart.CursorCrosshair>
-                    <LineChart.Tooltip>
-                      {({ data: tooltipData }) => (
-                        <ChartTooltip
-                          data={tooltipData}
-                          chartType="line"
-                          timeRange={timeRange}
-                        />
-                      )}
-                    </LineChart.Tooltip>
-                  </LineChart.CursorCrosshair>
                 </LineChart>
               </LineChart.Provider>
             )}
-              <IndicatorOverlays
-                indicators={indicators}
-                data={visibleData}
-                yDomain={yDomain}
-              />
-            </View>
-          </GestureDetector>
+            <IndicatorOverlays
+              indicators={indicators}
+              data={visibleData}
+              yDomain={yDomain}
+            />
+            <GestureDetector gesture={composedGestures}>
+              <Animated.View style={styles.gestureOverlay} />
+            </GestureDetector>
+          </View>
         ) : (
           <View style={styles.chartWrapper}>
             {chartType === 'candle' ? (
@@ -692,11 +671,6 @@ export default function StockChart({
           <Text style={styles.domainText}>{formatPriceValue(yDomain.max)}</Text>
           <Text style={styles.domainText}>{formatPriceValue(yDomain.min)}</Text>
         </View>
-        <View style={styles.zoomIndicator}>
-          <Text style={styles.zoomIndicatorText}>
-            {visibleData.length} / {data.length} points
-          </Text>
-        </View>
         <View style={styles.modeToggleContainer}>
           <TouchableOpacity
             style={[styles.modeToggleButton, chartMode === 'inspect' && styles.modeToggleButtonActive]}
@@ -780,6 +754,15 @@ const styles = StyleSheet.create({
   chartWrapper: {
     position: 'relative',
     overflow: 'hidden',
+  },
+  gestureOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: CHART_WIDTH,
+    height: CHART_HEIGHT,
   },
   priceText: {
     ...theme.typography.caption,
