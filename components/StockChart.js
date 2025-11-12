@@ -214,6 +214,9 @@ export default function StockChart({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Chart interaction mode: 'inspect' for price viewing, 'navigate' for zoom/pan
+  const [chartMode, setChartMode] = useState('inspect');
+
   // Data-level zoom: track visible range as percentages (0-100)
   const [visibleRangePercent, setVisibleRangePercent] = useState({ from: 0, to: 100 });
 
@@ -486,8 +489,10 @@ export default function StockChart({
       baseVisibleTo.value = visibleTo.value;
     });
 
-  // Compose gestures - allow simultaneous pan and pinch
-  const composedGestures = Gesture.Simultaneous(pinchGesture, panGesture);
+  // Compose gestures - allow simultaneous pan and pinch (only in navigate mode)
+  const composedGestures = React.useMemo(() => {
+    return Gesture.Simultaneous(pinchGesture, panGesture);
+  }, [pinchGesture, panGesture]);
 
   // Reset zoom function
   const resetZoom = () => {
@@ -527,7 +532,78 @@ export default function StockChart({
       </View>
 
       <View style={styles.chartContainer}>
-        <GestureDetector gesture={composedGestures}>
+        {chartMode === 'navigate' ? (
+          <GestureDetector gesture={composedGestures}>
+            <View style={styles.chartWrapper}>
+              {chartType === 'candle' ? (
+              <CandlestickChart.Provider data={visibleData}>
+                <CandlestickChart
+                  height={CHART_HEIGHT}
+                  width={CHART_WIDTH}
+                >
+                  <CandlestickChart.Candles
+                    positiveColor={theme.colors.success}
+                    negativeColor={theme.colors.error}
+                  />
+                  <CandlestickChart.Crosshair>
+                    <CandlestickChart.Tooltip>
+                      {({ data: tooltipData }) => (
+                        <ChartTooltip
+                          data={tooltipData}
+                          chartType="candle"
+                          timeRange={timeRange}
+                        />
+                      )}
+                    </CandlestickChart.Tooltip>
+                  </CandlestickChart.Crosshair>
+                </CandlestickChart>
+                <CandlestickChart.PriceText
+                  style={styles.priceText}
+                  precision={2}
+                  variant="formatted"
+                />
+              </CandlestickChart.Provider>
+            ) : (
+              <LineChart.Provider data={visibleData}>
+                <LineChart
+                  height={CHART_HEIGHT}
+                  width={CHART_WIDTH}
+                >
+                  <LineChart.Path
+                    color={isPositive ? theme.colors.success : theme.colors.error}
+                    width={2}
+                  >
+                    <LineChart.Gradient
+                      color={isPositive ? theme.colors.success : theme.colors.error}
+                    />
+                  </LineChart.Path>
+                  <LineChart.CursorCrosshair>
+                    <LineChart.Tooltip>
+                      {({ data: tooltipData }) => (
+                        <ChartTooltip
+                          data={tooltipData}
+                          chartType="line"
+                          timeRange={timeRange}
+                        />
+                      )}
+                    </LineChart.Tooltip>
+                  </LineChart.CursorCrosshair>
+                  <LineChart.PriceText
+                    style={styles.priceText}
+                    precision={2}
+                    variant="formatted"
+                  />
+                </LineChart>
+              </LineChart.Provider>
+            )}
+              <IndicatorOverlays
+                indicators={indicators}
+                data={visibleData}
+                yDomain={yDomain}
+              />
+            </View>
+          </GestureDetector>
+        ) : (
           <View style={styles.chartWrapper}>
             {chartType === 'candle' ? (
               <CandlestickChart.Provider data={visibleData}>
@@ -596,7 +672,7 @@ export default function StockChart({
               yDomain={yDomain}
             />
           </View>
-        </GestureDetector>
+        )}
 
         {indicators.length > 0 && (
           <View style={styles.indicatorLegend}>
@@ -631,17 +707,39 @@ export default function StockChart({
             {visibleData.length} / {data.length} points
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.resetButton}
-          onPress={resetZoom}
-        >
-          <Text style={styles.resetButtonText}>Reset</Text>
-        </TouchableOpacity>
+        <View style={styles.modeToggleContainer}>
+          <TouchableOpacity
+            style={[styles.modeToggleButton, chartMode === 'inspect' && styles.modeToggleButtonActive]}
+            onPress={() => setChartMode('inspect')}
+          >
+            <Text style={[styles.modeToggleText, chartMode === 'inspect' && styles.modeToggleTextActive]}>
+              Inspect
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeToggleButton, chartMode === 'navigate' && styles.modeToggleButtonActive]}
+            onPress={() => setChartMode('navigate')}
+          >
+            <Text style={[styles.modeToggleText, chartMode === 'navigate' && styles.modeToggleTextActive]}>
+              Navigate
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {chartMode === 'navigate' && (
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={resetZoom}
+          >
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionsText}>
-          Tap & hold for price • 2 fingers to zoom/pan
+          {chartMode === 'inspect'
+            ? 'Tap & hold to view prices at any point'
+            : 'Use 2 fingers to zoom and pan the chart'}
         </Text>
       </View>
     </View>
@@ -742,12 +840,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     marginTop: theme.spacing.xs,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    flexWrap: 'wrap',
   },
   domainContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-    flex: 1,
   },
   domainText: {
     ...theme.typography.caption,
@@ -762,6 +860,31 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: '600',
     fontSize: 11,
+  },
+  modeToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  modeToggleButton: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: 'transparent',
+  },
+  modeToggleButtonActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  modeToggleText: {
+    ...theme.typography.caption,
+    color: theme.colors.text,
+    fontWeight: '600',
+    fontSize: 11,
+  },
+  modeToggleTextActive: {
+    color: '#FFFFFF',
   },
   resetButton: {
     paddingHorizontal: theme.spacing.sm,

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../utils/theme';
 import PortfolioHoldingsScreen from './PortfolioHoldingsScreen';
 import PortfolioStatisticsScreen from './PortfolioStatisticsScreen';
@@ -77,9 +78,11 @@ const PortfolioTabBar = ({ state, navigation }) => {
  * Main portfolio view with top tab navigation for Holdings and Statistics
  */
 const PortfolioScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + theme.spacing.md }]}>
         <Text style={styles.title}>Portfolio</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('AddEditStock')}
@@ -115,7 +118,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
   },
   title: {
