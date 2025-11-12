@@ -1,21 +1,68 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import * as PortfolioStorage from '../services/portfolioStorage';
+import { getBulkSnapshots } from '../services/polygonAPI';
+import sp100Data from '../data/sp100.json';
 
 const PortfolioContext = createContext();
 
 /**
  * Portfolio Context Provider
- * Manages portfolio state and provides CRUD operations
+ * Manages portfolio state, CRUD operations, and shared stock quotes cache
  */
 export const PortfolioProvider = ({ children }) => {
   const [holdings, setHoldings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [quotes, setQuotes] = useState({}); // Shared quotes cache
+  const [quotesLoading, setQuotesLoading] = useState(false);
 
-  // Load portfolio on mount
+  // Load portfolio and quotes on mount
   useEffect(() => {
     loadPortfolio();
+    fetchQuotes();
   }, []);
+
+  /**
+   * Fetch all stock quotes
+   */
+  const fetchQuotes = async () => {
+    try {
+      setQuotesLoading(true);
+      if (__DEV__) {
+        console.log('[PortfolioContext] Fetching quotes for all S&P 100 stocks');
+      }
+      const symbols = sp100Data.map((stock) => stock.symbol);
+      const quotesData = await getBulkSnapshots(symbols);
+      setQuotes(quotesData);
+      if (__DEV__) {
+        console.log('[PortfolioContext] Quotes fetched:', Object.keys(quotesData).length);
+      }
+    } catch (error) {
+      console.error('[PortfolioContext] Error fetching quotes:', error);
+    } finally {
+      setQuotesLoading(false);
+    }
+  };
+
+  /**
+   * Get quote for a specific symbol
+   * @param {string} symbol - Stock symbol
+   * @returns {Object|null} Quote data
+   */
+  const getQuote = (symbol) => {
+    return quotes[symbol] || null;
+  };
+
+  /**
+   * Get current price for a symbol
+   * @param {string} symbol - Stock symbol
+   * @returns {number|null} Current price
+   */
+  const getCurrentPrice = (symbol) => {
+    const quote = quotes[symbol];
+    if (!quote) return null;
+    return quote.c || null;
+  };
 
   /**
    * Load portfolio from storage
@@ -40,6 +87,8 @@ export const PortfolioProvider = ({ children }) => {
       setRefreshing(true);
       const data = await PortfolioStorage.getPortfolio();
       setHoldings(data);
+      // Also refresh quotes
+      await fetchQuotes();
     } catch (error) {
       console.error('Error refreshing portfolio:', error);
     } finally {
@@ -136,11 +185,16 @@ export const PortfolioProvider = ({ children }) => {
     holdings,
     loading,
     refreshing,
+    quotes,
+    quotesLoading,
     addHolding,
     updateHolding,
     deleteHolding,
     clearPortfolio,
     refreshPortfolio,
+    fetchQuotes,
+    getQuote,
+    getCurrentPrice,
     hasSymbol,
   };
 

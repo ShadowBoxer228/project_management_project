@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
-import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
@@ -334,34 +334,44 @@ export default function StockChart({
   // Pinch gesture for zoom
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
+      'worklet';
       baseScale.value = scale.value;
     })
     .onUpdate((event) => {
+      'worklet';
       const newScale = baseScale.value * event.scale;
       // Limit zoom between 1x and 5x
       scale.value = Math.min(Math.max(newScale, 1), 5);
     })
     .onEnd(() => {
+      'worklet';
       baseScale.value = scale.value;
     });
 
-  // Pan gesture for scrolling
+  // Pan gesture for scrolling (only when zoomed)
   const panGesture = Gesture.Pan()
+    .minPointers(1)
+    .maxPointers(1)
     .onStart(() => {
+      'worklet';
       baseTranslateX.value = translateX.value;
     })
     .onUpdate((event) => {
-      const maxTranslate = (CHART_WIDTH * (scale.value - 1)) / 2;
-      const newTranslate = baseTranslateX.value + event.translationX;
-      // Constrain panning within bounds
-      translateX.value = Math.min(Math.max(newTranslate, -maxTranslate), maxTranslate);
+      'worklet';
+      if (scale.value > 1) {
+        const maxTranslate = (CHART_WIDTH * (scale.value - 1)) / 2;
+        const newTranslate = baseTranslateX.value + event.translationX;
+        // Constrain panning within bounds
+        translateX.value = Math.min(Math.max(newTranslate, -maxTranslate), maxTranslate);
+      }
     })
     .onEnd(() => {
+      'worklet';
       baseTranslateX.value = translateX.value;
     });
 
-  // Compose gestures - allow simultaneous pan and pinch
-  const composedGestures = Gesture.Simultaneous(panGesture, pinchGesture);
+  // Compose gestures - pinch takes precedence
+  const composedGestures = Gesture.Race(pinchGesture, panGesture);
 
   // Animated style for the chart container
   const animatedStyle = useAnimatedStyle(() => {
@@ -399,7 +409,7 @@ export default function StockChart({
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.statsContainer}>
         <Text style={[styles.changeText, { color: isPositive ? theme.colors.success : theme.colors.error }]}>
           {isPositive ? '+' : ''}{changePercent.toFixed(2)}% {timeRange}
@@ -509,7 +519,7 @@ export default function StockChart({
           Pinch to zoom • Drag to pan • Tap & hold for details
         </Text>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

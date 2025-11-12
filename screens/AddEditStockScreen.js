@@ -17,14 +17,12 @@ import { theme } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import sp100Data from '../data/sp100.json';
 
-const POLYGON_API_KEY = 'CC6_g1v7dJp1tgDkOzkYMX36p4vH6YYX';
-
 /**
  * AddEditStockScreen Component
  * Modal screen for adding or editing portfolio holdings
  */
 const AddEditStockScreen = ({ navigation, route }) => {
-  const { addHolding, updateHolding } = usePortfolio();
+  const { addHolding, updateHolding, getCurrentPrice, quotesLoading } = usePortfolio();
   const isEditMode = !!route.params?.holding;
   const existingHolding = route.params?.holding;
 
@@ -38,7 +36,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
   const [notes, setNotes] = useState('');
   const [currentPrice, setCurrentPrice] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [fetchingPrice, setFetchingPrice] = useState(false);
+  const [fetchingPrice, setFetchingPrice] = useState(quotesLoading);
 
   // Filtered stocks for search
   const [filteredStocks, setFilteredStocks] = useState([]);
@@ -71,12 +69,26 @@ const AddEditStockScreen = ({ navigation, route }) => {
     }
   }, [searchQuery]);
 
-  // Fetch current price when stock is selected
+  // Get current price when stock is selected
   useEffect(() => {
     if (selectedStock && !isEditMode) {
-      fetchCurrentPrice(selectedStock.symbol);
+      const price = getCurrentPrice(selectedStock.symbol);
+      if (price) {
+        if (__DEV__) {
+          console.log('[AddEditStock] Using cached price for', selectedStock.symbol, ':', price);
+        }
+        setCurrentPrice(price);
+        setPurchasePrice(price.toString());
+        setFetchingPrice(false);
+      } else {
+        if (__DEV__) {
+          console.log('[AddEditStock] No cached price for', selectedStock.symbol);
+        }
+        setCurrentPrice(null);
+        setFetchingPrice(false);
+      }
     }
-  }, [selectedStock]);
+  }, [selectedStock, getCurrentPrice]);
 
   // Update purchase price when switching to quick mode
   useEffect(() => {
@@ -84,53 +96,6 @@ const AddEditStockScreen = ({ navigation, route }) => {
       setPurchasePrice(currentPrice.toString());
     }
   }, [mode, currentPrice]);
-
-  /**
-   * Fetch current price for a stock
-   */
-  const fetchCurrentPrice = async (symbol) => {
-    try {
-      setFetchingPrice(true);
-      const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${POLYGON_API_KEY}`;
-
-      if (__DEV__) {
-        console.log('Fetching price for', symbol);
-      }
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (__DEV__) {
-        console.log('Price fetch response:', data.status, data.ticker ? 'has ticker' : 'no ticker');
-      }
-
-      if (data.status === 'OK' && data.ticker) {
-        const price = data.ticker.lastTrade?.p || data.ticker.day?.c;
-        if (price) {
-          if (__DEV__) {
-            console.log('Price fetched:', price);
-          }
-          setCurrentPrice(price);
-          setPurchasePrice(price.toString());
-        } else {
-          if (__DEV__) {
-            console.log('No price found in ticker data');
-          }
-          Alert.alert('Price Unavailable', 'Could not fetch current price. Please use Manual Entry mode.');
-        }
-      } else {
-        if (__DEV__) {
-          console.log('API response not OK:', data);
-        }
-        Alert.alert('Price Unavailable', 'Could not fetch current price. Please use Manual Entry mode.');
-      }
-    } catch (error) {
-      console.error('Error fetching price:', error);
-      Alert.alert('Error', 'Failed to fetch stock price. Please use Manual Entry mode.');
-    } finally {
-      setFetchingPrice(false);
-    }
-  };
 
   /**
    * Select a stock from search results
@@ -161,8 +126,8 @@ const AddEditStockScreen = ({ navigation, route }) => {
       return false;
     }
 
-    if (fetchingPrice) {
-      Alert.alert('Please Wait', 'Still fetching current price...');
+    if (fetchingPrice || quotesLoading) {
+      Alert.alert('Please Wait', 'Still loading stock prices...');
       return false;
     }
 
@@ -174,7 +139,11 @@ const AddEditStockScreen = ({ navigation, route }) => {
 
     const priceNum = parseFloat(purchasePrice);
     if (!purchasePrice || isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert('Error', 'Please enter a valid purchase price. Current price: ' + (currentPrice ? `$${currentPrice}` : 'Not available'));
+      if (mode === 'quick') {
+        Alert.alert('Error', 'Price not available for this stock. Please use Manual Entry mode.');
+      } else {
+        Alert.alert('Error', 'Please enter a valid purchase price');
+      }
       return false;
     }
 
@@ -343,15 +312,18 @@ const AddEditStockScreen = ({ navigation, route }) => {
           <View style={styles.section}>
             <Text style={styles.label}>Purchase Price (Current Market)</Text>
             <View style={styles.priceDisplayCard}>
-              {fetchingPrice ? (
+              {quotesLoading || fetchingPrice ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={styles.priceDisplayText}>Fetching current price...</Text>
+                  <Text style={styles.priceDisplayText}>Loading price...</Text>
                 </View>
               ) : purchasePrice ? (
                 <Text style={styles.priceDisplayValue}>${purchasePrice}</Text>
               ) : (
-                <Text style={styles.priceDisplayError}>Price unavailable</Text>
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={styles.priceDisplayError}>Price unavailable</Text>
+                  <Text style={styles.priceHint}>Please use Manual Entry mode</Text>
+                </View>
               )}
             </View>
           </View>
@@ -423,17 +395,17 @@ const AddEditStockScreen = ({ navigation, route }) => {
       {selectedStock && (
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.saveButton, (loading || fetchingPrice) && styles.saveButtonDisabled]}
+            style={[styles.saveButton, (loading || fetchingPrice || quotesLoading) && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={loading || fetchingPrice}
+            disabled={loading || fetchingPrice || quotesLoading}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : fetchingPrice ? (
+            ) : (fetchingPrice || quotesLoading) ? (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <ActivityIndicator size="small" color="#FFFFFF" />
                 <Text style={[styles.saveButtonText, { marginLeft: 8 }]}>
-                  Fetching Price...
+                  Loading Price...
                 </Text>
               </View>
             ) : (
@@ -641,6 +613,12 @@ const styles = StyleSheet.create({
   priceDisplayError: {
     fontSize: 14,
     color: theme.colors.error,
+    fontStyle: 'italic',
+  },
+  priceHint: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
     fontStyle: 'italic',
   },
   textArea: {
