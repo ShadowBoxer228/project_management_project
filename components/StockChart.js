@@ -443,10 +443,10 @@ export default function StockChart({
       baseVisibleTo.value = visibleTo.value;
     });
 
-  // Pan gesture for scrolling through data (requires 2 fingers to avoid conflict with crosshair)
+  // Pan gesture for scrolling through data (1 finger in navigate mode)
   const panGesture = Gesture.Pan()
-    .minPointers(2)
-    .maxPointers(2)
+    .minPointers(1)
+    .maxPointers(1)
     .onStart(() => {
       'worklet';
       basePanOffset.value = panOffset.value;
@@ -702,7 +702,7 @@ export default function StockChart({
         <Text style={styles.instructionsText}>
           {chartMode === 'inspect'
             ? 'Tap & hold to view prices at any point'
-            : 'Use 2 fingers to zoom and pan the chart'}
+            : '1 finger to pan • 2 fingers to zoom'}
         </Text>
       </View>
     </View>
