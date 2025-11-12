@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
@@ -210,11 +210,16 @@ export default function StockChart({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Gesture handling for zoom and pan
-  const scale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const baseScale = useSharedValue(1);
-  const baseTranslateX = useSharedValue(0);
+  // Data-level zoom: track visible range as percentages (0-100)
+  const [visibleRangePercent, setVisibleRangePercent] = useState({ from: 0, to: 100 });
+
+  // Shared values for gesture handling
+  const visibleFrom = useSharedValue(0);
+  const visibleTo = useSharedValue(100);
+  const baseVisibleFrom = useSharedValue(0);
+  const baseVisibleTo = useSharedValue(100);
+  const panOffset = useSharedValue(0);
+  const basePanOffset = useSharedValue(0);
 
   useEffect(() => {
     let isActive = true;
@@ -274,30 +279,45 @@ export default function StockChart({
     };
   }, [symbol, timeRange]);
 
+  // Calculate visible data slice based on zoom range
+  const visibleData = React.useMemo(() => {
+    if (!data.length) return [];
+
+    const fromIndex = Math.floor((visibleRangePercent.from / 100) * data.length);
+    const toIndex = Math.ceil((visibleRangePercent.to / 100) * data.length);
+
+    // Ensure we show at least 10 data points for readability
+    const minPoints = Math.min(10, data.length);
+    const actualFrom = Math.max(0, Math.min(fromIndex, data.length - minPoints));
+    const actualTo = Math.min(data.length, Math.max(toIndex, actualFrom + minPoints));
+
+    return data.slice(actualFrom, actualTo);
+  }, [data, visibleRangePercent]);
+
   const { yDomain, latestValue } = React.useMemo(() => {
-    if (!data.length) {
+    if (!visibleData.length) {
       return {
         yDomain: { min: 0, max: 1 },
         latestValue: null,
       };
     }
 
-    const values = data.map((point) => point.value);
-    const highValues = data.map((point) => point.high);
-    const lowValues = data.map((point) => point.low);
+    const values = visibleData.map((point) => point.value);
+    const highValues = visibleData.map((point) => point.high);
+    const lowValues = visibleData.map((point) => point.low);
 
     const minValue = Math.min(...lowValues, ...values);
     const maxValue = Math.max(...highValues, ...values);
 
     return {
       yDomain: { min: minValue, max: maxValue },
-      latestValue: data[data.length - 1],
+      latestValue: data[data.length - 1], // Always show the latest value from full data
     };
-  }, [data]);
+  }, [visibleData, data]);
 
-  // Calculate technical indicators
+  // Calculate technical indicators on visible data
   const indicators = React.useMemo(() => {
-    if (!data.length || !selectedIndicators.length) {
+    if (!visibleData.length || !selectedIndicators.length) {
       return [];
     }
 
@@ -308,10 +328,14 @@ export default function StockChart({
         if (!indicator) return null;
 
         try {
+          // Calculate indicators on full data but filter to visible range
           const calculatedData = indicator.calculate(data);
+          const visibleTimestamps = new Set(visibleData.map(d => d.timestamp));
+          const visibleIndicatorData = calculatedData.filter(d => visibleTimestamps.has(d.timestamp));
+
           return {
             ...indicator,
-            data: calculatedData,
+            data: visibleIndicatorData,
           };
         } catch (err) {
           console.error(`Error calculating ${indicator.name}:`, err);
@@ -319,7 +343,7 @@ export default function StockChart({
         }
       })
       .filter(Boolean);
-  }, [data, selectedIndicators]);
+  }, [data, visibleData, selectedIndicators]);
 
   const { changePercent, isPositive } = getChangeMeta(data);
   debugLog('Render with stats', { symbol, timeRange, points: data.length, changePercent });
@@ -331,64 +355,115 @@ export default function StockChart({
     return `${price} • ${formattedTime}`;
   }, [latestValue, timeRange]);
 
-  // Pinch gesture for zoom
+  // Helper to update visible range (called from worklet via runOnJS)
+  const updateVisibleRange = React.useCallback((from, to) => {
+    setVisibleRangePercent({ from, to });
+  }, []);
+
+  // Pinch gesture for data-level zoom
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
       'worklet';
-      baseScale.value = scale.value;
+      baseVisibleFrom.value = visibleFrom.value;
+      baseVisibleTo.value = visibleTo.value;
     })
     .onUpdate((event) => {
       'worklet';
-      const newScale = baseScale.value * event.scale;
-      // Limit zoom between 1x and 5x
-      scale.value = Math.min(Math.max(newScale, 1), 5);
+      // Calculate the current visible range
+      const currentRange = baseVisibleTo.value - baseVisibleFrom.value;
+
+      // Zoom in = smaller range (fewer data points), zoom out = larger range (more data points)
+      const zoomFactor = 1 / event.scale;
+      const newRange = Math.max(5, Math.min(100, currentRange * zoomFactor)); // Min 5%, max 100%
+
+      // Keep the center point fixed while zooming
+      const center = (baseVisibleFrom.value + baseVisibleTo.value) / 2;
+      const newFrom = Math.max(0, center - newRange / 2);
+      const newTo = Math.min(100, center + newRange / 2);
+
+      // Adjust if we hit boundaries
+      if (newTo - newFrom < newRange) {
+        if (newFrom === 0) {
+          visibleFrom.value = 0;
+          visibleTo.value = Math.min(100, newRange);
+        } else {
+          visibleFrom.value = Math.max(0, 100 - newRange);
+          visibleTo.value = 100;
+        }
+      } else {
+        visibleFrom.value = newFrom;
+        visibleTo.value = newTo;
+      }
     })
     .onEnd(() => {
       'worklet';
-      baseScale.value = scale.value;
+      baseVisibleFrom.value = visibleFrom.value;
+      baseVisibleTo.value = visibleTo.value;
+
+      // Update React state
+      const from = visibleFrom.value;
+      const to = visibleTo.value;
+      require('react-native').runOnJS(updateVisibleRange)(from, to);
     });
 
-  // Pan gesture for scrolling (only when zoomed)
+  // Pan gesture for scrolling through data
   const panGesture = Gesture.Pan()
     .minPointers(1)
     .maxPointers(1)
     .onStart(() => {
       'worklet';
-      baseTranslateX.value = translateX.value;
+      basePanOffset.value = panOffset.value;
+      baseVisibleFrom.value = visibleFrom.value;
+      baseVisibleTo.value = visibleTo.value;
     })
     .onUpdate((event) => {
       'worklet';
-      if (scale.value > 1) {
-        const maxTranslate = (CHART_WIDTH * (scale.value - 1)) / 2;
-        const newTranslate = baseTranslateX.value + event.translationX;
-        // Constrain panning within bounds
-        translateX.value = Math.min(Math.max(newTranslate, -maxTranslate), maxTranslate);
+      const currentRange = baseVisibleTo.value - baseVisibleFrom.value;
+
+      // Convert pan distance to percentage of data
+      const panPercent = (event.translationX / CHART_WIDTH) * currentRange;
+      panOffset.value = basePanOffset.value + panPercent;
+
+      // Calculate new visible range
+      let newFrom = baseVisibleFrom.value - panPercent;
+      let newTo = baseVisibleTo.value - panPercent;
+
+      // Constrain within bounds
+      if (newFrom < 0) {
+        newFrom = 0;
+        newTo = currentRange;
+      } else if (newTo > 100) {
+        newTo = 100;
+        newFrom = 100 - currentRange;
       }
+
+      visibleFrom.value = newFrom;
+      visibleTo.value = newTo;
     })
     .onEnd(() => {
       'worklet';
-      baseTranslateX.value = translateX.value;
+      basePanOffset.value = panOffset.value;
+      baseVisibleFrom.value = visibleFrom.value;
+      baseVisibleTo.value = visibleTo.value;
+
+      // Update React state
+      const from = visibleFrom.value;
+      const to = visibleTo.value;
+      require('react-native').runOnJS(updateVisibleRange)(from, to);
     });
 
   // Compose gestures - pinch takes precedence
   const composedGestures = Gesture.Race(pinchGesture, panGesture);
 
-  // Animated style for the chart container
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateX: translateX.value },
-        { scale: scale.value },
-      ],
-    };
-  });
-
   // Reset zoom function
   const resetZoom = () => {
-    scale.value = withSpring(1);
-    translateX.value = withSpring(0);
-    baseScale.value = 1;
-    baseTranslateX.value = 0;
+    visibleFrom.value = 0;
+    visibleTo.value = 100;
+    baseVisibleFrom.value = 0;
+    baseVisibleTo.value = 100;
+    panOffset.value = 0;
+    basePanOffset.value = 0;
+    setVisibleRangePercent({ from: 0, to: 100 });
   };
 
   if (loading) {
@@ -419,9 +494,9 @@ export default function StockChart({
 
       <View style={styles.chartContainer}>
         <GestureDetector gesture={composedGestures}>
-          <Animated.View style={[styles.chartWrapper, animatedStyle]}>
+          <View style={styles.chartWrapper}>
             {chartType === 'candle' ? (
-              <CandlestickChart.Provider data={data}>
+              <CandlestickChart.Provider data={visibleData}>
                 <CandlestickChart
                   height={CHART_HEIGHT}
                   width={CHART_WIDTH}
@@ -449,7 +524,7 @@ export default function StockChart({
                 />
               </CandlestickChart.Provider>
             ) : (
-              <LineChart.Provider data={data}>
+              <LineChart.Provider data={visibleData}>
                 <LineChart
                   height={CHART_HEIGHT}
                   width={CHART_WIDTH}
@@ -483,10 +558,10 @@ export default function StockChart({
             )}
             <IndicatorOverlays
               indicators={indicators}
-              data={data}
+              data={visibleData}
               yDomain={yDomain}
             />
-          </Animated.View>
+          </View>
         </GestureDetector>
 
         {indicators.length > 0 && (
@@ -506,11 +581,16 @@ export default function StockChart({
           <Text style={styles.domainText}>{formatPriceValue(yDomain.max)}</Text>
           <Text style={styles.domainText}>{formatPriceValue(yDomain.min)}</Text>
         </View>
+        <View style={styles.zoomIndicator}>
+          <Text style={styles.zoomIndicatorText}>
+            {visibleData.length} / {data.length} points
+          </Text>
+        </View>
         <TouchableOpacity
           style={styles.resetButton}
           onPress={resetZoom}
         >
-          <Text style={styles.resetButtonText}>Reset Zoom</Text>
+          <Text style={styles.resetButtonText}>Reset</Text>
         </TouchableOpacity>
       </View>
 
@@ -602,14 +682,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     marginTop: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
   domainContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
+    flex: 1,
   },
   domainText: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
+  },
+  zoomIndicator: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  zoomIndicatorText: {
+    ...theme.typography.caption,
+    color: theme.colors.primary,
+    fontWeight: '600',
+    fontSize: 11,
   },
   resetButton: {
     paddingHorizontal: theme.spacing.sm,
