@@ -135,9 +135,13 @@ const formatTimestampValue = (timestamp, range) => {
     return '';
   }
   if (range === '1D') {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (range === '1W' || range === '1M') {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  // For longer ranges, show month and year
+  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 };
 
 const sanitizePoint = (point) => {
@@ -436,9 +440,9 @@ export default function StockChart({
       baseVisibleTo.value = visibleTo.value;
     });
 
-  // Pan gesture for scrolling through data (works with 1 or 2 fingers)
+  // Pan gesture for scrolling through data (requires 2 fingers to avoid conflict with crosshair)
   const panGesture = Gesture.Pan()
-    .minPointers(1)
+    .minPointers(2)
     .maxPointers(2)
     .onStart(() => {
       'worklet';
@@ -606,6 +610,17 @@ export default function StockChart({
         )}
       </View>
 
+      <View style={styles.timeAxisContainer}>
+        {visibleData.length > 0 && [0, 0.25, 0.5, 0.75, 1].map((position, index) => {
+          const dataIndex = Math.floor(position * (visibleData.length - 1));
+          return (
+            <Text key={index} style={styles.timeAxisText}>
+              {formatTimestampValue(visibleData[dataIndex].timestamp, timeRange)}
+            </Text>
+          );
+        })}
+      </View>
+
       <View style={styles.controlsRow}>
         <View style={styles.domainContainer}>
           <Text style={styles.domainText}>{formatPriceValue(yDomain.max)}</Text>
@@ -626,7 +641,7 @@ export default function StockChart({
 
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionsText}>
-          Pinch to zoom • Drag to pan • Tap & hold for details
+          Tap & hold for price • 2 fingers to zoom/pan
         </Text>
       </View>
     </View>
@@ -705,6 +720,21 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
     fontSize: 11,
+  },
+  timeAxisContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
+    paddingBottom: theme.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  timeAxisText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontSize: 10,
   },
   controlsRow: {
     flexDirection: 'row',

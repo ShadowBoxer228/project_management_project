@@ -202,7 +202,7 @@ const PortfolioHoldingsScreen = ({ navigation }) => {
         <View style={styles.insightsSection}>
           <View style={styles.insightsHeader}>
             <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
-            <Text style={styles.insightsTitle}>AI Portfolio Insights</Text>
+            <Text style={styles.insightsTitle}>Portfolio Insights</Text>
           </View>
           {loadingInsights ? (
             <View style={styles.loadingContainer}>

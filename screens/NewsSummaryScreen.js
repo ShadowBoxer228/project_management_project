@@ -389,7 +389,7 @@ export default function NewsSummaryScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Powered by Perplexity • Refreshed {new Date().toLocaleTimeString()}
+          Refreshed {new Date().toLocaleTimeString()}
         </Text>
       </View>
     </ScrollView>

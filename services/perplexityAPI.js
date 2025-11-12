@@ -816,16 +816,16 @@ export const getEarningsInsights = async (symbol, companyName, nextEarningsDate)
         role: 'user',
         content: `Analyze recent earnings performance and outlook for ${companyName || symbol} (next earnings: ${dateText}).
 
-Provide 3-4 concise insights covering:
-- Recent earnings beat/miss history
-- Revenue and profit trends
-- Key metrics investors are watching
-- What to expect in upcoming report
+Provide 3-4 detailed insights covering:
+- Recent earnings beat/miss history with specific numbers
+- Revenue and profit trends over recent quarters
+- Key metrics investors are watching (margins, guidance, etc.)
+- What to expect in the upcoming earnings report
 
-Keep each point to 1-2 sentences.`,
+Format as clear bullet points. Each insight should be 2-3 complete sentences with specific details.`,
       },
     ],
-    maxTokens: 400,
+    maxTokens: 500,
     temperature: 0.3,
   });
 
@@ -833,14 +833,33 @@ Keep each point to 1-2 sentences.`,
     return [];
   }
 
-  const content = completionResponse.content.replace(/\*\*/g, '').replace(/\[[\d,\s]+\]/g, '').trim();
+  const content = completionResponse.content
+    .replace(/\*\*/g, '')
+    .replace(/\[[\d,\s]+\]/g, '')
+    .replace(/^#{1,6}\s+/gm, '')  // Remove markdown headers
+    .trim();
   
-  // Split into bullet points
-  const insights = content
-    .split(/\n+/)
-    .map(line => line.replace(/^[-•*\d.)\s]+/, '').trim())
-    .filter(line => line.length > 20)
-    .slice(0, 4);
+  // Split into paragraphs and bullet points
+  const lines = content.split(/\n+/);
+  const insights = [];
+  
+  for (const line of lines) {
+    // Remove bullet markers and numbering
+    let cleaned = line
+      .replace(/^[-•*]\s+/, '')
+      .replace(/^\d+\.\s+/, '')
+      .trim();
+    
+    // Skip empty lines, headers, and very short lines
+    if (!cleaned || cleaned.length < 30) continue;
+    
+    // Skip lines that look like section headers
+    if (cleaned.endsWith(':') && cleaned.length < 60) continue;
+    
+    insights.push(cleaned);
+    
+    if (insights.length >= 4) break;
+  }
 
   setCachedData(cacheKey, insights);
   return insights;
