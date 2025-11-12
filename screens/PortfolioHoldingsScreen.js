@@ -25,8 +25,9 @@ const FINNHUB_API_KEY = 'd3scib9r01qs1aps7j90d3scib9r01qs1aps7j9g';
 const PortfolioHoldingsScreen = ({ navigation }) => {
   const { holdings, refreshPortfolio, deleteHolding, quotes, quotesLoading, getCurrentPrice } = usePortfolio();
   const [refreshing, setRefreshing] = useState(false);
-  const [aiInsights, setAiInsights] = useState(null);
+  const [aiInsights, setAiInsights] = useState([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [expandedInsights, setExpandedInsights] = useState(new Set());
 
   useEffect(() => {
     if (holdings.length > 0 && Object.keys(quotes).length > 0) {
@@ -51,10 +52,10 @@ const PortfolioHoldingsScreen = ({ navigation }) => {
         }
       });
       const insights = await getPortfolioInsights(holdings, pricesMap);
-      setAiInsights(insights);
+      setAiInsights(Array.isArray(insights) ? insights : []);
     } catch (error) {
       console.error('[PortfolioHoldings] Error fetching AI insights:', error);
-      setAiInsights({ error: 'Failed to load insights' });
+      setAiInsights([]);
     } finally {
       setLoadingInsights(false);
     }
@@ -91,6 +92,19 @@ const PortfolioHoldingsScreen = ({ navigation }) => {
    */
   const handleStockPress = (holding) => {
     navigation.navigate('StockDetail', { symbol: holding.symbol });
+  };
+
+  /**
+   * Toggle insight expanded state
+   */
+  const toggleInsightExpanded = (index) => {
+    const newExpanded = new Set(expandedInsights);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedInsights(newExpanded);
   };
 
   /**
@@ -185,19 +199,57 @@ const PortfolioHoldingsScreen = ({ navigation }) => {
         </View>
 
         {/* AI Insights Section */}
-        <View style={styles.insightsCard}>
+        <View style={styles.insightsSection}>
           <View style={styles.insightsHeader}>
             <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
             <Text style={styles.insightsTitle}>AI Portfolio Insights</Text>
           </View>
           {loadingInsights ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : aiInsights?.error ? (
-            <Text style={styles.insightsError}>{aiInsights.error}</Text>
-          ) : aiInsights ? (
-            <Text style={styles.insightsText}>{aiInsights}</Text>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : aiInsights.length > 0 ? (
+            <View style={styles.insightsList}>
+              {aiInsights.map((item, index) => {
+                const isExpanded = expandedInsights.has(index);
+                const hasSnippet = item.snippet && item.snippet.length > 0;
+
+                return (
+                  <View key={`insight-${index}`} style={styles.insightCard}>
+                    <TouchableOpacity
+                      onPress={() => hasSnippet && toggleInsightExpanded(index)}
+                      activeOpacity={hasSnippet ? 0.7 : 1}
+                    >
+                      <View style={styles.insightTitleRow}>
+                        <Text style={styles.insightTitle}>{item.title}</Text>
+                        {hasSnippet && (
+                          <Ionicons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={20}
+                            color={theme.colors.textSecondary}
+                          />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    {hasSnippet && (
+                      <View style={styles.snippetContainer}>
+                        <Text
+                          style={styles.insightSnippet}
+                          numberOfLines={isExpanded ? null : 2}
+                        >
+                          {item.snippet}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           ) : (
-            <Text style={styles.insightsPlaceholder}>Loading insights...</Text>
+            <Text style={styles.insightsPlaceholder}>
+              No insights available. Pull to refresh.
+            </Text>
           )}
         </View>
 
@@ -304,13 +356,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  insightsCard: {
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+  insightsSection: {
+    padding: theme.spacing.md,
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.card,
   },
   insightsHeader: {
     flexDirection: 'row',
@@ -323,20 +372,47 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginLeft: theme.spacing.sm,
   },
-  insightsText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: theme.colors.text,
+  loadingContainer: {
+    padding: theme.spacing.md,
+    alignItems: 'center',
   },
-  insightsError: {
-    fontSize: 14,
-    color: theme.colors.error,
-    fontStyle: 'italic',
+  insightsList: {
+    gap: theme.spacing.md,
+  },
+  insightCard: {
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  insightTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  insightTitle: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
+  },
+  snippetContainer: {
+    marginBottom: theme.spacing.sm,
+  },
+  insightSnippet: {
+    ...theme.typography.small,
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
   },
   insightsPlaceholder: {
     fontSize: 14,
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: theme.spacing.md,
   },
 });
 

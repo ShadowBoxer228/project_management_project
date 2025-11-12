@@ -7,6 +7,10 @@ import PortfolioHoldingsScreen from './PortfolioHoldingsScreen';
 import PortfolioStatisticsScreen from './PortfolioStatisticsScreen';
 
 const Tab = createMaterialTopTabNavigator();
+const TAB_LABELS = {
+  Holdings: 'Portfolio',
+  Statistics: 'Statistics',
+};
 
 /**
  * PortfolioScreen Component
@@ -26,15 +30,21 @@ const PortfolioScreen = ({ navigation }) => {
       </View>
 
       <Tab.Navigator
-        screenOptions={{
+        screenOptions={({ route }) => ({
           tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.text,
-          tabBarLabelStyle: {
-            fontSize: 16,
-            fontWeight: '600',
-            textTransform: 'none',
-            marginTop: 0,
-          },
+          tabBarInactiveTintColor: theme.colors.textSecondary,
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: focused ? theme.colors.primary : theme.colors.textSecondary,
+                },
+              ]}
+            >
+              {TAB_LABELS[route.name] || route.name}
+            </Text>
+          ),
           tabBarStyle: {
             backgroundColor: theme.colors.cardBackground,
             elevation: 2,
@@ -50,7 +60,7 @@ const PortfolioScreen = ({ navigation }) => {
             height: 3,
           },
           tabBarPressColor: theme.colors.surface,
-        }}
+        })}
       >
         <Tab.Screen
           name="Holdings"
@@ -87,6 +97,11 @@ const styles = StyleSheet.create({
   },
   addButton: {
     padding: theme.spacing.xs,
+  },
+  tabLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    textTransform: 'none',
   },
 });
 

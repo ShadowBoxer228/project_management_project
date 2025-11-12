@@ -406,10 +406,10 @@ export default function StockChart({
       require('react-native').runOnJS(updateVisibleRange)(from, to);
     });
 
-  // Pan gesture for scrolling through data
+  // Pan gesture for scrolling through data (works with 1 or 2 fingers)
   const panGesture = Gesture.Pan()
     .minPointers(1)
-    .maxPointers(1)
+    .maxPointers(2)
     .onStart(() => {
       'worklet';
       basePanOffset.value = panOffset.value;
@@ -452,8 +452,8 @@ export default function StockChart({
       require('react-native').runOnJS(updateVisibleRange)(from, to);
     });
 
-  // Compose gestures - pinch takes precedence
-  const composedGestures = Gesture.Race(pinchGesture, panGesture);
+  // Compose gestures - allow simultaneous pan and pinch
+  const composedGestures = Gesture.Simultaneous(pinchGesture, panGesture);
 
   // Reset zoom function
   const resetZoom = () => {

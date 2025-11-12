@@ -175,6 +175,109 @@ const mapInsightTextToItems = (text, symbol, companyName) => {
   }));
 };
 
+const mapPortfolioInsightsToItems = (text) => {
+  if (!text) return [];
+
+  // Clean up the text - remove markdown, citations
+  const cleanText = text
+    .replace(/\*\*/g, '')
+    .replace(/\[[\d,\s]+\]/g, '')
+    .trim();
+
+  // Try to split by numbered sections (1., 2., 3., etc.)
+  const numberedSections = cleanText.split(/\n(?=\d+\.\s*\*\*)/);
+
+  if (numberedSections.length > 1) {
+    // Format with numbered sections
+    return numberedSections
+      .map(section => section.trim())
+      .filter(section => section.length > 30)
+      .map(section => {
+        // Extract title from section (e.g., "1. **Diversification Analysis**:")
+        const titleMatch = section.match(/^\d+\.\s*\*?\*?([^:*]+)\*?\*?:?\s*/);
+        if (titleMatch) {
+          const title = titleMatch[1].trim();
+          const snippet = section.replace(titleMatch[0], '').trim();
+          return {
+            title,
+            snippet: snippet || section,
+            date: new Date().toISOString(),
+            url: null,
+          };
+        }
+        // Fallback: use first sentence as title
+        const sentences = section.split(/[.!?]+/).filter(s => s.trim().length > 15);
+        if (sentences.length >= 2) {
+          return {
+            title: sentences[0].trim() + '.',
+            snippet: sentences.slice(1).join('. ').trim() + '.',
+            date: new Date().toISOString(),
+            url: null,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .slice(0, 5);
+  }
+
+  // Fallback: split by paragraphs
+  const paragraphs = cleanText.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+
+  if (paragraphs.length === 1) {
+    // Single paragraph - split by sentences
+    const sentences = cleanText.split(/\.\s+/).filter(s => s.trim().length > 20);
+    const items = [];
+
+    for (let i = 0; i < sentences.length; i += 2) {
+      if (i < sentences.length) {
+        const title = sentences[i].trim() + '.';
+        const snippet = sentences[i + 1] ? sentences[i + 1].trim() + '.' : '';
+
+        items.push({
+          title: title.length > 80 ? title.substring(0, 77) + '...' : title,
+          snippet: snippet || title,
+          date: new Date().toISOString(),
+          url: null,
+        });
+      }
+    }
+
+    return items.slice(0, 5);
+  }
+
+  // Multiple paragraphs - each paragraph becomes an item
+  return paragraphs.slice(0, 5).map((paragraph, idx) => {
+    const sentences = paragraph.split(/[.!?]+/).filter(s => s.trim().length > 15);
+
+    if (sentences.length >= 2) {
+      return {
+        title: sentences[0].trim() + '.',
+        snippet: sentences.slice(1).join('. ').trim() + '.',
+        date: new Date().toISOString(),
+        url: null,
+      };
+    } else if (paragraph.length > 50) {
+      // Long single sentence - split it
+      const words = paragraph.split(' ');
+      const midPoint = Math.min(10, Math.floor(words.length / 2));
+      return {
+        title: words.slice(0, midPoint).join(' ') + '...',
+        snippet: words.slice(midPoint).join(' '),
+        date: new Date().toISOString(),
+        url: null,
+      };
+    }
+
+    return {
+      title: `Portfolio Insight ${idx + 1}`,
+      snippet: paragraph,
+      date: new Date().toISOString(),
+      url: null,
+    };
+  });
+};
+
 const dedupeResults = (items = []) => {
   const unique = [];
   const seen = new Set();
@@ -315,7 +418,7 @@ export const getStockAnalysis = async (symbol, companyName) => {
 
 export const getPortfolioInsights = async (holdings, prices) => {
   if (!holdings || holdings.length === 0) {
-    return 'Your portfolio is empty. Add stocks to receive AI insights.';
+    return [];
   }
 
   const todayIso = new Date().toISOString().split('T')[0];
@@ -353,7 +456,7 @@ export const getPortfolioInsights = async (holdings, prices) => {
       {
         role: 'system',
         content:
-          'You are a professional financial advisor providing comprehensive portfolio analysis. Be specific, actionable, and balanced in your assessment.',
+          'You are a professional financial advisor providing comprehensive portfolio analysis. Format your response with clear numbered sections (1., 2., 3., 4.) for each analysis point.',
       },
       {
         role: 'user',
@@ -367,13 +470,14 @@ Overall Return: ${totalGainLossPercent >= 0 ? '+' : ''}${totalGainLossPercent.to
 Holdings:
 ${holdingsSummary}
 
-Please provide:
-1. **Diversification Analysis**: Assess how well diversified this portfolio is. Are there concentration risks?
-2. **Risk Assessment**: Evaluate the overall risk level. What are the key risks?
-3. **Market Outlook**: Given current market conditions (${todayIso}), what's the outlook for these holdings?
-4. **Rebalancing Suggestions**: Should the investor consider any adjustments? Any stocks to add or reduce?
+Please provide exactly 4 numbered insights:
+1. Diversification Analysis: Assess how well diversified this portfolio is. Are there concentration risks?
+2. Risk Assessment: Evaluate the overall risk level. What are the key risks?
+3. Market Outlook: Given current market conditions (${todayIso}), what's the outlook for these holdings?
+4. Rebalancing Suggestions: Should the investor consider any adjustments? Any stocks to add or reduce?
 
-Keep the analysis concise (6-8 sentences total) but actionable.`,
+Format each insight as:
+1. [Title]: [2-3 sentences of analysis]`,
       },
     ],
     maxTokens: 800,
@@ -382,15 +486,12 @@ Keep the analysis concise (6-8 sentences total) but actionable.`,
 
   if (!completionResponse || !completionResponse.content) {
     console.log('[PerplexityAPI] Portfolio insights failed, returning fallback');
-    return 'Unable to generate portfolio insights at this time. Please try again later.';
+    return [];
   }
 
-  const insights = completionResponse.content
-    .replace(/\*\*/g, '')
-    .replace(/\[[\d,\s]+\]/g, '')
-    .trim();
+  const insightsItems = mapPortfolioInsightsToItems(completionResponse.content);
 
-  console.log('[PerplexityAPI] Portfolio insights success:', insights.length, 'characters');
-  setCachedData(cacheKey, insights);
-  return insights;
+  console.log('[PerplexityAPI] Portfolio insights success:', insightsItems.length, 'items');
+  setCachedData(cacheKey, insightsItems);
+  return insightsItems;
 };
