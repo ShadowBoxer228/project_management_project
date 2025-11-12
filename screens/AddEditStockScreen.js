@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePortfolio } from '../context/PortfolioContext';
-import theme from '../utils/theme';
+import { theme } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import sp100Data from '../data/sp100.json';
 

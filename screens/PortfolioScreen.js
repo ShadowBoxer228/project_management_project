@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePortfolio } from '../context/PortfolioContext';
 import PortfolioStockItem from '../components/PortfolioStockItem';
 import PortfolioStats from '../components/PortfolioStats';
-import theme from '../utils/theme';
+import { theme } from '../utils/theme';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { getPortfolioInsights } from '../services/perplexityAPI';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import theme from '../utils/theme';
+import { theme } from '../utils/theme';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 
 /**

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import theme from '../utils/theme';
+import { theme } from '../utils/theme';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import StockChart from './StockChart';
 
