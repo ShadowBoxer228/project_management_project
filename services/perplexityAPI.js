@@ -185,7 +185,7 @@ const mapPortfolioInsightsToItems = (text) => {
     .trim();
 
   // Try to split by numbered sections (1., 2., 3., etc.)
-  const numberedSections = cleanText.split(/\n(?=\d+\.\s*\*\*)/);
+  const numberedSections = cleanText.split(/\n(?=\d+\.)/);
 
   if (numberedSections.length > 1) {
     // Format with numbered sections
@@ -193,28 +193,36 @@ const mapPortfolioInsightsToItems = (text) => {
       .map(section => section.trim())
       .filter(section => section.length > 30)
       .map(section => {
-        // Extract title from section (e.g., "1. **Diversification Analysis**:")
-        const titleMatch = section.match(/^\d+\.\s*\*?\*?([^:*]+)\*?\*?:?\s*/);
-        if (titleMatch) {
-          const title = titleMatch[1].trim();
-          const snippet = section.replace(titleMatch[0], '').trim();
+        // Extract title and content from section (e.g., "1. Diversification Analysis: This portfolio...")
+        // Match pattern: "1. Title: Content"
+        const fullMatch = section.match(/^\d+\.\s*([^:]+):\s*(.+)$/s);
+        if (fullMatch) {
+          const title = fullMatch[1].trim();
+          const snippet = fullMatch[2].trim();
           return {
             title,
-            snippet: snippet || section,
+            snippet,
             date: new Date().toISOString(),
             url: null,
           };
         }
-        // Fallback: use first sentence as title
-        const sentences = section.split(/[.!?]+/).filter(s => s.trim().length > 15);
-        if (sentences.length >= 2) {
-          return {
-            title: sentences[0].trim() + '.',
-            snippet: sentences.slice(1).join('. ').trim() + '.',
-            date: new Date().toISOString(),
-            url: null,
-          };
+
+        // Try alternate pattern without colon: "1. Title Content"
+        const altMatch = section.match(/^\d+\.\s*(.+)$/s);
+        if (altMatch) {
+          const content = altMatch[1].trim();
+          // Find first sentence break to separate title from content
+          const sentences = content.split(/(?<=[.!?])\s+/);
+          if (sentences.length >= 2) {
+            return {
+              title: sentences[0].replace(/[.!?]+$/, ''),
+              snippet: sentences.slice(1).join(' '),
+              date: new Date().toISOString(),
+              url: null,
+            };
+          }
         }
+
         return null;
       })
       .filter(Boolean)
@@ -231,12 +239,12 @@ const mapPortfolioInsightsToItems = (text) => {
 
     for (let i = 0; i < sentences.length; i += 2) {
       if (i < sentences.length) {
-        const title = sentences[i].trim() + '.';
+        const title = sentences[i].trim();
         const snippet = sentences[i + 1] ? sentences[i + 1].trim() + '.' : '';
 
         items.push({
           title: title.length > 80 ? title.substring(0, 77) + '...' : title,
-          snippet: snippet || title,
+          snippet: snippet || title + '.',
           date: new Date().toISOString(),
           url: null,
         });
@@ -248,11 +256,21 @@ const mapPortfolioInsightsToItems = (text) => {
 
   // Multiple paragraphs - each paragraph becomes an item
   return paragraphs.slice(0, 5).map((paragraph, idx) => {
-    const sentences = paragraph.split(/[.!?]+/).filter(s => s.trim().length > 15);
+    // Try to extract title from first part
+    const colonMatch = paragraph.match(/^([^:]+):\s*(.+)$/s);
+    if (colonMatch && colonMatch[1].length < 80) {
+      return {
+        title: colonMatch[1].trim(),
+        snippet: colonMatch[2].trim(),
+        date: new Date().toISOString(),
+        url: null,
+      };
+    }
 
+    const sentences = paragraph.split(/[.!?]+/).filter(s => s.trim().length > 15);
     if (sentences.length >= 2) {
       return {
-        title: sentences[0].trim() + '.',
+        title: sentences[0].trim(),
         snippet: sentences.slice(1).join('. ').trim() + '.',
         date: new Date().toISOString(),
         url: null,

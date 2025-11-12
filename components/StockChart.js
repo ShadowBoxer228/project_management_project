@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
@@ -221,6 +221,17 @@ export default function StockChart({
   const panOffset = useSharedValue(0);
   const basePanOffset = useSharedValue(0);
 
+  // Reset zoom when symbol or time range changes
+  useEffect(() => {
+    visibleFrom.value = 0;
+    visibleTo.value = 100;
+    baseVisibleFrom.value = 0;
+    baseVisibleTo.value = 100;
+    panOffset.value = 0;
+    basePanOffset.value = 0;
+    setVisibleRangePercent({ from: 0, to: 100 });
+  }, [symbol, timeRange, visibleFrom, visibleTo, baseVisibleFrom, baseVisibleTo, panOffset, basePanOffset]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -281,17 +292,25 @@ export default function StockChart({
 
   // Calculate visible data slice based on zoom range
   const visibleData = React.useMemo(() => {
-    if (!data.length) return [];
+    if (!data || !data.length) return [];
 
-    const fromIndex = Math.floor((visibleRangePercent.from / 100) * data.length);
-    const toIndex = Math.ceil((visibleRangePercent.to / 100) * data.length);
+    try {
+      const fromIndex = Math.floor((visibleRangePercent.from / 100) * data.length);
+      const toIndex = Math.ceil((visibleRangePercent.to / 100) * data.length);
 
-    // Ensure we show at least 10 data points for readability
-    const minPoints = Math.min(10, data.length);
-    const actualFrom = Math.max(0, Math.min(fromIndex, data.length - minPoints));
-    const actualTo = Math.min(data.length, Math.max(toIndex, actualFrom + minPoints));
+      // Ensure we show at least 10 data points for readability
+      const minPoints = Math.min(10, data.length);
+      const actualFrom = Math.max(0, Math.min(fromIndex, data.length - minPoints));
+      const actualTo = Math.min(data.length, Math.max(toIndex, actualFrom + minPoints));
 
-    return data.slice(actualFrom, actualTo);
+      const slicedData = data.slice(actualFrom, actualTo);
+
+      // Ensure we return valid data
+      return slicedData && slicedData.length > 0 ? slicedData : data;
+    } catch (err) {
+      console.error('Error slicing visible data:', err);
+      return data;
+    }
   }, [data, visibleRangePercent]);
 
   const { yDomain, latestValue } = React.useMemo(() => {
@@ -403,7 +422,7 @@ export default function StockChart({
       // Update React state
       const from = visibleFrom.value;
       const to = visibleTo.value;
-      require('react-native').runOnJS(updateVisibleRange)(from, to);
+      runOnJS(updateVisibleRange)(from, to);
     });
 
   // Pan gesture for scrolling through data (works with 1 or 2 fingers)
@@ -449,7 +468,7 @@ export default function StockChart({
       // Update React state
       const from = visibleFrom.value;
       const to = visibleTo.value;
-      require('react-native').runOnJS(updateVisibleRange)(from, to);
+      runOnJS(updateVisibleRange)(from, to);
     });
 
   // Compose gestures - allow simultaneous pan and pinch
