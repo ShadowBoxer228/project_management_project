@@ -78,6 +78,13 @@ const AddEditStockScreen = ({ navigation, route }) => {
     }
   }, [selectedStock]);
 
+  // Update purchase price when switching to quick mode
+  useEffect(() => {
+    if (mode === 'quick' && currentPrice) {
+      setPurchasePrice(currentPrice.toString());
+    }
+  }, [mode, currentPrice]);
+
   /**
    * Fetch current price for a stock
    */
@@ -87,38 +94,39 @@ const AddEditStockScreen = ({ navigation, route }) => {
       const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${POLYGON_API_KEY}`;
 
       if (__DEV__) {
-        console.log('[AddEditStock] Fetching price for:', symbol);
+        console.log('Fetching price for', symbol);
       }
 
       const response = await fetch(url);
       const data = await response.json();
 
       if (__DEV__) {
-        console.log('[AddEditStock] Price fetch response:', data.status, data.ticker?.lastTrade?.p || data.ticker?.day?.c);
+        console.log('Price fetch response:', data.status, data.ticker ? 'has ticker' : 'no ticker');
       }
 
       if (data.status === 'OK' && data.ticker) {
         const price = data.ticker.lastTrade?.p || data.ticker.day?.c;
         if (price) {
-          setCurrentPrice(price);
-          if (mode === 'quick') {
-            setPurchasePrice(price.toString());
-            if (__DEV__) {
-              console.log('[AddEditStock] Quick mode - set purchase price to:', price);
-            }
+          if (__DEV__) {
+            console.log('Price fetched:', price);
           }
+          setCurrentPrice(price);
+          setPurchasePrice(price.toString());
         } else {
           if (__DEV__) {
-            console.log('[AddEditStock] No price found in ticker data');
+            console.log('No price found in ticker data');
           }
+          Alert.alert('Price Unavailable', 'Could not fetch current price. Please use Manual Entry mode.');
         }
       } else {
         if (__DEV__) {
-          console.log('[AddEditStock] Price fetch failed:', data);
+          console.log('API response not OK:', data);
         }
+        Alert.alert('Price Unavailable', 'Could not fetch current price. Please use Manual Entry mode.');
       }
     } catch (error) {
-      console.error('[AddEditStock] Error fetching price:', error);
+      console.error('Error fetching price:', error);
+      Alert.alert('Error', 'Failed to fetch stock price. Please use Manual Entry mode.');
     } finally {
       setFetchingPrice(false);
     }
@@ -148,40 +156,28 @@ const AddEditStockScreen = ({ navigation, route }) => {
    * Validate form inputs
    */
   const validateForm = () => {
-    if (__DEV__) {
-      console.log('[AddEditStock] validateForm called', {
-        selectedStock: selectedStock?.symbol,
-        shares,
-        purchasePrice,
-      });
-    }
-
     if (!selectedStock) {
       Alert.alert('Error', 'Please select a stock');
       return false;
     }
 
+    if (fetchingPrice) {
+      Alert.alert('Please Wait', 'Still fetching current price...');
+      return false;
+    }
+
     const sharesNum = parseFloat(shares);
     if (!shares || isNaN(sharesNum) || sharesNum <= 0) {
-      if (__DEV__) {
-        console.log('[AddEditStock] Invalid shares:', shares);
-      }
       Alert.alert('Error', 'Please enter a valid number of shares');
       return false;
     }
 
     const priceNum = parseFloat(purchasePrice);
     if (!purchasePrice || isNaN(priceNum) || priceNum <= 0) {
-      if (__DEV__) {
-        console.log('[AddEditStock] Invalid price:', purchasePrice);
-      }
-      Alert.alert('Error', 'Please enter a valid purchase price');
+      Alert.alert('Error', 'Please enter a valid purchase price. Current price: ' + (currentPrice ? `$${currentPrice}` : 'Not available'));
       return false;
     }
 
-    if (__DEV__) {
-      console.log('[AddEditStock] Validation passed');
-    }
     return true;
   };
 
@@ -189,21 +185,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
    * Handle save
    */
   const handleSave = async () => {
-    if (__DEV__) {
-      console.log('[AddEditStock] handleSave called', {
-        selectedStock: selectedStock?.symbol,
-        shares,
-        purchasePrice,
-        mode,
-      });
-    }
-
-    if (!validateForm()) {
-      if (__DEV__) {
-        console.log('[AddEditStock] Validation failed');
-      }
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       setLoading(true);
@@ -217,19 +199,11 @@ const AddEditStockScreen = ({ navigation, route }) => {
         notes: notes.trim(),
       };
 
-      if (__DEV__) {
-        console.log('[AddEditStock] Saving holding data:', holdingData);
-      }
-
       let success;
       if (isEditMode) {
         success = await updateHolding(existingHolding.id, holdingData);
       } else {
         success = await addHolding(holdingData);
-      }
-
-      if (__DEV__) {
-        console.log('[AddEditStock] Save result:', success);
       }
 
       if (success) {
@@ -238,7 +212,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
         Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'add'} holding`);
       }
     } catch (error) {
-      console.error('[AddEditStock] Error saving holding:', error);
+      console.error('Error saving holding:', error);
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -364,6 +338,25 @@ const AddEditStockScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {/* Quick Add Price Display */}
+        {selectedStock && mode === 'quick' && (
+          <View style={styles.section}>
+            <Text style={styles.label}>Purchase Price (Current Market)</Text>
+            <View style={styles.priceDisplayCard}>
+              {fetchingPrice ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <Text style={styles.priceDisplayText}>Fetching current price...</Text>
+                </View>
+              ) : purchasePrice ? (
+                <Text style={styles.priceDisplayValue}>${purchasePrice}</Text>
+              ) : (
+                <Text style={styles.priceDisplayError}>Price unavailable</Text>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Purchase Price Input */}
         {selectedStock && mode === 'manual' && (
           <View style={styles.section}>
@@ -430,12 +423,19 @@ const AddEditStockScreen = ({ navigation, route }) => {
       {selectedStock && (
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+            style={[styles.saveButton, (loading || fetchingPrice) && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={loading}
+            disabled={loading || fetchingPrice}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : fetchingPrice ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={[styles.saveButtonText, { marginLeft: 8 }]}>
+                  Fetching Price...
+                </Text>
+              </View>
             ) : (
               <Text style={styles.saveButtonText}>
                 {isEditMode ? 'Update' : 'Add to Portfolio'}
@@ -618,6 +618,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,
+  },
+  priceDisplayCard: {
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    ...theme.shadows.card,
+    alignItems: 'center',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  priceDisplayText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginLeft: theme.spacing.sm,
+  },
+  priceDisplayValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  priceDisplayError: {
+    fontSize: 14,
+    color: theme.colors.error,
+    fontStyle: 'italic',
   },
   textArea: {
     height: 100,
