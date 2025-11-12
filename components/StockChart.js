@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
-import Svg, { Path, Rect, Line } from 'react-native-svg';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
+import ChartTooltip from './ChartTooltip';
+import { getAvailableIndicators } from '../utils/technicalIndicators';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 32;
@@ -13,6 +17,108 @@ const debugLog = (...args) => {
     console.log('[StockChart]', ...args);
   }
 };
+
+// Helper to create SVG path from indicator data
+function createIndicatorPath(indicatorData, allData, yDomain) {
+  if (!indicatorData || !indicatorData.length || !allData.length) {
+    return '';
+  }
+
+  const minValue = yDomain.min;
+  const maxValue = yDomain.max;
+  const valueRange = maxValue - minValue || 1;
+
+  // Create a map of timestamps to X positions from the main data
+  const timestampToX = new Map();
+  allData.forEach((point, index) => {
+    const x = allData.length === 1 ? CHART_WIDTH / 2 : (index / (allData.length - 1)) * CHART_WIDTH;
+    timestampToX.set(point.timestamp, x);
+  });
+
+  // Convert indicator data to SVG path
+  const pathPoints = indicatorData
+    .map((point) => {
+      const x = timestampToX.get(point.timestamp);
+      if (x === undefined) return null;
+
+      const y = CHART_HEIGHT - ((point.value - minValue) / valueRange) * CHART_HEIGHT;
+      return { x, y };
+    })
+    .filter(Boolean);
+
+  if (pathPoints.length === 0) return '';
+
+  return pathPoints.reduce((acc, point, index) => {
+    if (index === 0) {
+      return `M ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+    }
+    return `${acc} L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+  }, '');
+}
+
+// Component to render indicator overlays as SVG
+function IndicatorOverlays({ indicators, data, yDomain }) {
+  if (!indicators || !indicators.length || !data.length) {
+    return null;
+  }
+
+  return (
+    <Svg
+      width={CHART_WIDTH}
+      height={CHART_HEIGHT}
+      style={StyleSheet.absoluteFill}
+    >
+      {indicators.map((indicator) => {
+        // Handle Bollinger Bands specially
+        if (indicator.id === 'bollinger') {
+          const { upper, middle, lower } = indicator.data;
+          const upperPath = createIndicatorPath(upper, data, yDomain);
+          const middlePath = createIndicatorPath(middle, data, yDomain);
+          const lowerPath = createIndicatorPath(lower, data, yDomain);
+
+          return (
+            <React.Fragment key={indicator.id}>
+              <SvgPath
+                d={upperPath}
+                stroke={indicator.color}
+                strokeWidth={1}
+                fill="none"
+                opacity={0.6}
+              />
+              <SvgPath
+                d={middlePath}
+                stroke={indicator.color}
+                strokeWidth={1.5}
+                fill="none"
+                opacity={0.8}
+              />
+              <SvgPath
+                d={lowerPath}
+                stroke={indicator.color}
+                strokeWidth={1}
+                fill="none"
+                opacity={0.6}
+              />
+            </React.Fragment>
+          );
+        }
+
+        // Regular indicator
+        const path = createIndicatorPath(indicator.data, data, yDomain);
+        return (
+          <SvgPath
+            key={indicator.id}
+            d={path}
+            stroke={indicator.color}
+            strokeWidth={1.5}
+            fill="none"
+            opacity={0.8}
+          />
+        );
+      })}
+    </Svg>
+  );
+}
 
 const formatPriceValue = (value) => {
   const numericValue = Number(value);
@@ -93,7 +199,12 @@ const getChangeMeta = (series) => {
   };
 };
 
-export default function StockChart({ symbol, chartType = 'line', timeRange = '1D' }) {
+export default function StockChart({
+  symbol,
+  chartType = 'line',
+  timeRange = '1D',
+  selectedIndicators = []
+}) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -156,12 +267,9 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
     };
   }, [symbol, timeRange]);
 
-  const { linePath, areaPath, candlesticks, yDomain, latestValue } = React.useMemo(() => {
+  const { yDomain, latestValue } = React.useMemo(() => {
     if (!data.length) {
       return {
-        linePath: '',
-        areaPath: '',
-        candlesticks: [],
         yDomain: { min: 0, max: 1 },
         latestValue: null,
       };
@@ -173,59 +281,38 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
 
     const minValue = Math.min(...lowValues, ...values);
     const maxValue = Math.max(...highValues, ...values);
-    const valueRange = maxValue - minValue || 1;
-
-    const points = data.map((point, index) => {
-      const x = data.length === 1 ? CHART_WIDTH / 2 : (index / (data.length - 1)) * CHART_WIDTH;
-      const valueY =
-        CHART_HEIGHT - ((point.value - minValue) / valueRange) * CHART_HEIGHT;
-      const openY = CHART_HEIGHT - ((point.open - minValue) / valueRange) * CHART_HEIGHT;
-      const closeY = CHART_HEIGHT - ((point.close - minValue) / valueRange) * CHART_HEIGHT;
-      const highY = CHART_HEIGHT - ((point.high - minValue) / valueRange) * CHART_HEIGHT;
-      const lowY = CHART_HEIGHT - ((point.low - minValue) / valueRange) * CHART_HEIGHT;
-
-      return {
-        x,
-        valueY,
-        openY,
-        closeY,
-        highY,
-        lowY,
-        point,
-      };
-    });
-
-    const path = points.reduce((acc, current, index) => {
-      if (index === 0) {
-        return `M ${current.x.toFixed(2)} ${current.valueY.toFixed(2)}`;
-      }
-      return `${acc} L ${current.x.toFixed(2)} ${current.valueY.toFixed(2)}`;
-    }, '');
-
-    const area = `${path} L ${CHART_WIDTH.toFixed(2)} ${CHART_HEIGHT.toFixed(
-      2
-    )} L 0 ${CHART_HEIGHT.toFixed(2)} Z`;
-
-    const candleWidth = Math.max(3, CHART_WIDTH / Math.max(data.length, 12) * 0.6);
-    const candleData = points.map((p) => ({
-      x: p.x,
-      openY: p.openY,
-      closeY: p.closeY,
-      highY: p.highY,
-      lowY: p.lowY,
-      point: p.point,
-      isPositive: p.point.close >= p.point.open,
-      candleWidth,
-    }));
 
     return {
-      linePath: path,
-      areaPath: area,
-      candlesticks: candleData,
       yDomain: { min: minValue, max: maxValue },
       latestValue: data[data.length - 1],
     };
   }, [data]);
+
+  // Calculate technical indicators
+  const indicators = React.useMemo(() => {
+    if (!data.length || !selectedIndicators.length) {
+      return [];
+    }
+
+    const availableIndicators = getAvailableIndicators();
+    return selectedIndicators
+      .map((indicatorId) => {
+        const indicator = availableIndicators.find((ind) => ind.id === indicatorId);
+        if (!indicator) return null;
+
+        try {
+          const calculatedData = indicator.calculate(data);
+          return {
+            ...indicator,
+            data: calculatedData,
+          };
+        } catch (err) {
+          console.error(`Error calculating ${indicator.name}:`, err);
+          return null;
+        }
+      })
+      .filter(Boolean);
+  }, [data, selectedIndicators]);
 
   const { changePercent, isPositive } = getChangeMeta(data);
   debugLog('Render with stats', { symbol, timeRange, points: data.length, changePercent });
@@ -255,7 +342,7 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
   }
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <View style={styles.statsContainer}>
         <Text style={[styles.changeText, { color: isPositive ? theme.colors.success : theme.colors.error }]}>
           {isPositive ? '+' : ''}{changePercent.toFixed(2)}% {timeRange}
@@ -263,58 +350,115 @@ export default function StockChart({ symbol, chartType = 'line', timeRange = '1D
         {latestPriceLabel ? <Text style={styles.priceLabel}>{latestPriceLabel}</Text> : null}
       </View>
 
-      {chartType === 'candle' ? (
-        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-          {candlesticks.map((candle, index) => (
-            <React.Fragment key={`${candle.point.timestamp}-${index}`}>
-              <Line
-                x1={candle.x.toFixed(2)}
-                y1={candle.highY.toFixed(2)}
-                x2={candle.x.toFixed(2)}
-                y2={candle.lowY.toFixed(2)}
-                stroke={candle.isPositive ? theme.colors.success : theme.colors.error}
-                strokeWidth={2}
+      <View style={styles.chartContainer}>
+        <View style={styles.chartWrapper}>
+          {chartType === 'candle' ? (
+            <CandlestickChart.Provider data={data}>
+              <CandlestickChart
+                height={CHART_HEIGHT}
+                width={CHART_WIDTH}
+              >
+                <CandlestickChart.Candles
+                  positiveColor={theme.colors.success}
+                  negativeColor={theme.colors.error}
+                />
+                <CandlestickChart.Crosshair>
+                  <CandlestickChart.Tooltip>
+                    {({ data: tooltipData }) => (
+                      <ChartTooltip
+                        data={tooltipData}
+                        chartType="candle"
+                        timeRange={timeRange}
+                      />
+                    )}
+                  </CandlestickChart.Tooltip>
+                </CandlestickChart.Crosshair>
+              </CandlestickChart>
+              <CandlestickChart.PriceText
+                style={styles.priceText}
+                precision={2}
+                variant="formatted"
               />
-              <Rect
-                x={(candle.x - candle.candleWidth / 2).toFixed(2)}
-                y={Math.min(candle.openY, candle.closeY).toFixed(2)}
-                width={candle.candleWidth.toFixed(2)}
-                height={Math.max(Math.abs(candle.closeY - candle.openY), 2).toFixed(2)}
-                fill={candle.isPositive ? theme.colors.success : theme.colors.error}
-                opacity={0.8}
-                rx={candle.candleWidth * 0.15}
-              />
-            </React.Fragment>
-          ))}
-        </Svg>
-      ) : (
-        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-          <Path
-            d={areaPath}
-            fill={isPositive ? theme.colors.success + '22' : theme.colors.error + '22'}
+            </CandlestickChart.Provider>
+          ) : (
+            <LineChart.Provider data={data}>
+              <LineChart
+                height={CHART_HEIGHT}
+                width={CHART_WIDTH}
+              >
+                <LineChart.Path
+                  color={isPositive ? theme.colors.success : theme.colors.error}
+                  width={2}
+                >
+                  <LineChart.Gradient
+                    color={isPositive ? theme.colors.success : theme.colors.error}
+                  />
+                </LineChart.Path>
+                <LineChart.CursorCrosshair>
+                  <LineChart.Tooltip>
+                    {({ data: tooltipData }) => (
+                      <ChartTooltip
+                        data={tooltipData}
+                        chartType="line"
+                        timeRange={timeRange}
+                      />
+                    )}
+                  </LineChart.Tooltip>
+                </LineChart.CursorCrosshair>
+                <LineChart.PriceText
+                  style={styles.priceText}
+                  precision={2}
+                  variant="formatted"
+                />
+              </LineChart>
+            </LineChart.Provider>
+          )}
+          <IndicatorOverlays
+            indicators={indicators}
+            data={data}
+            yDomain={yDomain}
           />
-          <Path
-            d={linePath}
-            stroke={isPositive ? theme.colors.success : theme.colors.error}
-            strokeWidth={2}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      )}
+        </View>
 
-      <View style={styles.domainContainer}>
-        <Text style={styles.domainText}>{formatPriceValue(yDomain.max)}</Text>
-        <Text style={styles.domainText}>{formatPriceValue(yDomain.min)}</Text>
+        {indicators.length > 0 && (
+          <View style={styles.indicatorLegend}>
+            {indicators.map((indicator) => (
+              <View key={indicator.id} style={styles.legendItem}>
+                <View style={[styles.legendColor, { backgroundColor: indicator.color }]} />
+                <Text style={styles.legendText}>{indicator.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
-    </View>
+
+      <View style={styles.controlsRow}>
+        <View style={styles.domainContainer}>
+          <Text style={styles.domainText}>{formatPriceValue(yDomain.max)}</Text>
+          <Text style={styles.domainText}>{formatPriceValue(yDomain.min)}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.resetButton}
+          onPress={() => {
+            // Reset zoom - wagmi-charts will handle this automatically on provider re-render
+            setData([...data]);
+          }}
+        >
+          <Text style={styles.resetButtonText}>Reset Zoom</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.instructionsContainer}>
+        <Text style={styles.instructionsText}>
+          Pinch to zoom • Drag to pan • Tap & hold for details
+        </Text>
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    height: 280,
     paddingVertical: theme.spacing.md,
   },
   loadingContainer: {
@@ -350,14 +494,77 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 4,
   },
-  domainContainer: {
+  chartContainer: {
+    paddingHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  chartWrapper: {
+    position: 'relative',
+  },
+  priceText: {
+    ...theme.typography.caption,
+    color: theme.colors.text,
+  },
+  indicatorLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendColor: {
+    width: 12,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  legendText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+  },
+  controlsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     marginTop: theme.spacing.xs,
+  },
+  domainContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
   },
   domainText: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
+  },
+  resetButton: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  resetButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  instructionsContainer: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
+  },
+  instructionsText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

@@ -26,6 +26,7 @@ import { getCompanyOverview } from '../services/alphaVantageAPI';
 import { getStockAnalysis } from '../services/perplexityAPI';
 import { getPreviousClose } from '../services/polygonAPI';
 import StockChart from '../components/StockChart';
+import { getAvailableIndicators } from '../utils/technicalIndicators';
 
 const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 const debugLog = (...args) => {
@@ -61,6 +62,8 @@ export default function StockDetailScreen({ route }) {
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('line');
   const [timeRange, setTimeRange] = useState('1D');
+  const [selectedIndicators, setSelectedIndicators] = useState([]);
+  const [showIndicators, setShowIndicators] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -270,9 +273,69 @@ export default function StockDetailScreen({ route }) {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.indicatorsButton}
+          onPress={() => setShowIndicators(!showIndicators)}
+        >
+          <Ionicons
+            name="analytics-outline"
+            size={18}
+            color={selectedIndicators.length > 0 ? theme.colors.primary : theme.colors.textSecondary}
+          />
+          <Text style={[
+            styles.indicatorsButtonText,
+            selectedIndicators.length > 0 && styles.indicatorsButtonTextActive
+          ]}>
+            Indicators{selectedIndicators.length > 0 ? ` (${selectedIndicators.length})` : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <StockChart symbol={symbol} chartType={chartType} timeRange={timeRange} />
+      {showIndicators && (
+        <View style={styles.indicatorSelector}>
+          <Text style={styles.indicatorSelectorTitle}>Technical Indicators</Text>
+          <View style={styles.indicatorGrid}>
+            {getAvailableIndicators().map((indicator) => {
+              const isSelected = selectedIndicators.includes(indicator.id);
+              return (
+                <TouchableOpacity
+                  key={indicator.id}
+                  style={[
+                    styles.indicatorChip,
+                    isSelected && styles.indicatorChipActive
+                  ]}
+                  onPress={() => {
+                    setSelectedIndicators((prev) =>
+                      isSelected
+                        ? prev.filter((id) => id !== indicator.id)
+                        : [...prev, indicator.id]
+                    );
+                  }}
+                >
+                  <View style={[styles.indicatorColorDot, { backgroundColor: indicator.color }]} />
+                  <Text style={[
+                    styles.indicatorChipText,
+                    isSelected && styles.indicatorChipTextActive
+                  ]}>
+                    {indicator.name}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      <StockChart
+        symbol={symbol}
+        chartType={chartType}
+        timeRange={timeRange}
+        selectedIndicators={selectedIndicators}
+      />
 
       <ScrollView
         horizontal
@@ -480,12 +543,17 @@ const styles = StyleSheet.create({
   chartTypeContainer: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   chartTypeButtons: {
     flexDirection: 'row',
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
     padding: 4,
+    flex: 1,
   },
   chartTypeButton: {
     flex: 1,
@@ -504,6 +572,74 @@ const styles = StyleSheet.create({
   },
   chartTypeButtonTextActive: {
     color: theme.colors.text,
+  },
+  indicatorsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  indicatorsButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  indicatorsButtonTextActive: {
+    color: theme.colors.primary,
+  },
+  indicatorSelector: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  indicatorSelectorTitle: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    fontWeight: '600',
+    marginBottom: theme.spacing.sm,
+  },
+  indicatorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  indicatorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  indicatorChipActive: {
+    backgroundColor: theme.colors.primary + '15',
+    borderColor: theme.colors.primary,
+  },
+  indicatorColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  indicatorChipText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  indicatorChipTextActive: {
+    color: theme.colors.text,
+    fontWeight: '600',
   },
   timeRangeContainer: {
     marginBottom: theme.spacing.md,

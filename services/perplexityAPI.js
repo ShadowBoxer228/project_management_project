@@ -20,6 +20,7 @@ const setCachedData = (key, data) => {
 
 const executeSearch = async (payload) => {
   try {
+    console.log('[PerplexityAPI] executeSearch called', { query: payload.query });
     const response = await fetch(BASE_URL, {
       method: 'POST',
       headers: {
@@ -29,6 +30,7 @@ const executeSearch = async (payload) => {
       body: JSON.stringify(payload),
     });
 
+    console.log('[PerplexityAPI] executeSearch response status:', response.status);
     const data = await response.json();
 
     if (!response.ok) {
@@ -40,15 +42,18 @@ const executeSearch = async (payload) => {
       return null;
     }
 
-    return data?.results || [];
+    const results = data?.results || [];
+    console.log('[PerplexityAPI] executeSearch results:', results.length);
+    return results;
   } catch (error) {
-    console.error('Error executing Perplexity search:', error);
+    console.error('Error executing Perplexity search:', error, error.message);
     return null;
   }
 };
 
 const executeCompletion = async ({ messages, maxTokens = 1200, temperature = 0.3 }) => {
   try {
+    console.log('[PerplexityAPI] executeCompletion called');
     const response = await fetch(COMPLETIONS_URL, {
       method: 'POST',
       headers: {
@@ -63,6 +68,7 @@ const executeCompletion = async ({ messages, maxTokens = 1200, temperature = 0.3
       }),
     });
 
+    console.log('[PerplexityAPI] executeCompletion response status:', response.status);
     const data = await response.json();
 
     if (!response.ok) {
@@ -77,12 +83,13 @@ const executeCompletion = async ({ messages, maxTokens = 1200, temperature = 0.3
     const content = data?.choices?.[0]?.message?.content;
     const citations = data?.citations || [];
 
+    console.log('[PerplexityAPI] executeCompletion content length:', content?.length || 0);
     return {
       content: typeof content === 'string' ? content.trim() : null,
       citations: citations,
     };
   } catch (error) {
-    console.error('Error executing Perplexity completion:', error);
+    console.error('Error executing Perplexity completion:', error, error.message);
     return null;
   }
 };
@@ -269,49 +276,39 @@ export const getStockAnalysis = async (symbol, companyName) => {
   const todayIso = new Date().toISOString().split('T')[0];
   const cacheKey = `stock_analysis_${symbol}_${todayIso}`;
   const cached = getCachedData(cacheKey);
-  if (cached) return cached;
-
-  const query = `${companyName || symbol} stock latest news, analyst commentary, technical outlook`;
-
-  const results = await executeSearch({
-    query,
-    max_results: 5,
-    max_tokens_per_page: 1024,
-    search_domain_filter: [
-      'finance.yahoo.com',
-      'seekingalpha.com',
-      'marketwatch.com',
-      'bloomberg.com',
-      'cnbc.com',
-    ],
-  });
-
-  if (!results) {
-    const completionResponse = await executeCompletion({
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a market analyst summarizing actionable stock insights using short paragraphs.',
-        },
-        {
-          role: 'user',
-          content: `Provide the five most important updates for ${companyName || symbol}. Cover recent news, analyst commentary, technical signals, institutional activity, and any risks. Use short paragraphs.`,
-        },
-      ],
-      maxTokens: 800,
-    });
-
-    if (!completionResponse || !completionResponse.content) {
-      return null;
-    }
-
-    const fallbackInsights = mapInsightTextToItems(completionResponse.content, symbol, companyName);
-    setCachedData(cacheKey, fallbackInsights);
-    return fallbackInsights;
+  if (cached) {
+    console.log(`[PerplexityAPI] Returning cached analysis for ${symbol}`);
+    return cached;
   }
 
-  const uniqueResults = dedupeResults(results);
-  setCachedData(cacheKey, uniqueResults);
-  return uniqueResults;
+  console.log(`[PerplexityAPI] Fetching analysis for ${symbol} (${companyName})`);
+
+  // Use completion API directly for better cross-platform compatibility
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a market analyst providing concise, actionable stock insights. Format your response as 3-5 distinct insights, each as a separate paragraph.',
+      },
+      {
+        role: 'user',
+        content: `Provide 3-5 key insights about ${companyName || symbol} stock. Include recent price action, analyst sentiment, upcoming catalysts, technical outlook, and any notable risks. Each insight should be a concise paragraph (2-3 sentences).`,
+      },
+    ],
+    maxTokens: 800,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    console.log(`[PerplexityAPI] Completion failed for ${symbol}, returning empty array`);
+    return [];
+  }
+
+  const insights = mapInsightTextToItems(completionResponse.content, symbol, companyName);
+  console.log(`[PerplexityAPI] Analysis success for ${symbol}: ${insights.length} insights`);
+
+  // Return empty array instead of null if no insights generated
+  const result = insights.length > 0 ? insights : [];
+  setCachedData(cacheKey, result);
+  return result;
 };

@@ -12,9 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../utils/theme';
-import { getTimeUntilMarketOpen, isMarketOpen, formatPercentage } from '../utils/formatters';
+import { getTimeUntilMarketOpen, isMarketOpen } from '../utils/formatters';
 import { getDailyMarketSummary, getMarketAdvice } from '../services/perplexityAPI';
-import { getEconomicCalendar, getEarningsCalendar, getQuote } from '../services/finnhubAPI';
+import { getEconomicCalendar } from '../services/finnhubAPI';
 import sp100Data from '../data/sp100.json';
 import { useNavigation } from '@react-navigation/native';
 
@@ -25,10 +25,7 @@ export default function NewsSummaryScreen() {
   const [marketHeadlinesMessage, setMarketHeadlinesMessage] = useState('');
   const [marketAdvice, setMarketAdvice] = useState('');
   const [expandedHeadlines, setExpandedHeadlines] = useState(new Set());
-  const [adviceExpanded, setAdviceExpanded] = useState(false);
   const [economicEvents, setEconomicEvents] = useState([]);
-  const [earningsEvents, setEarningsEvents] = useState([]);
-  const [earningsQuotes, setEarningsQuotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [timeUntilOpen, setTimeUntilOpen] = useState('');
@@ -49,11 +46,10 @@ export default function NewsSummaryScreen() {
 
   const fetchData = async () => {
     try {
-      const [headlines, advice, economicData, earningsData] = await Promise.all([
+      const [headlines, advice, economicData] = await Promise.all([
         getDailyMarketSummary(),
         getMarketAdvice(),
         getEconomicCalendar(),
-        getEarningsCalendar(),
       ]);
 
       if (Array.isArray(headlines) && headlines.length > 0) {
@@ -69,37 +65,7 @@ export default function NewsSummaryScreen() {
       setMarketAdvice(advice || '');
 
       const economicItems = economicData?.economicCalendar || [];
-      const earningsItems = earningsData?.earningsCalendar || [];
-
       setEconomicEvents(economicItems);
-      setEarningsEvents(earningsItems);
-
-      const symbolsToFetch = Array.from(
-        new Set(
-          earningsItems
-            .slice(0, 8)
-            .map((event) => event.symbol)
-            .filter(Boolean)
-        )
-      );
-
-      if (symbolsToFetch.length) {
-        const quoteEntries = await Promise.all(
-          symbolsToFetch.map(async (symbol) => {
-            try {
-              const quote = await getQuote(symbol);
-              return [symbol, quote];
-            } catch (error) {
-              console.error(`Error fetching quote for ${symbol}:`, error);
-              return [symbol, null];
-            }
-          })
-        );
-
-        setEarningsQuotes(Object.fromEntries(quoteEntries));
-      } else {
-        setEarningsQuotes({});
-      }
     } catch (error) {
       console.error('Error fetching news data:', error);
       setMarketHeadlines([]);
@@ -240,17 +206,6 @@ export default function NewsSummaryScreen() {
     );
   };
 
-  const getEarningsChangeMeta = (symbol) => {
-    const quote = earningsQuotes[symbol];
-    if (!quote || typeof quote.dp !== 'number') {
-      return { text: 'N/A', isPositive: null };
-    }
-    return {
-      text: formatPercentage(quote.dp),
-      isPositive: quote.dp >= 0,
-    };
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -360,85 +315,6 @@ export default function NewsSummaryScreen() {
         )}
       </View>
 
-      {earningsEvents.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="bar-chart" size={20} color={theme.colors.primary} />
-            <Text style={styles.sectionTitle}>Today's Earnings</Text>
-          </View>
-          <View style={styles.calendarContainer}>
-            {earningsEvents.slice(0, 8).map((event, index) => {
-              const { text, isPositive } = getEarningsChangeMeta(event.symbol);
-              return (
-                <TouchableOpacity
-                  key={`${event.symbol}-${index}`}
-                  style={styles.eventItem}
-                  onPress={() => handleNavigateToStock(event.symbol)}
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.eventDot} />
-                  <View style={styles.eventContent}>
-                    <View style={styles.eventRow}>
-                      <Text style={styles.eventSymbol}>{event.symbol}</Text>
-                      {event.hour ? <Text style={styles.eventSub}>{event.hour.toLowerCase()}</Text> : null}
-                    </View>
-                    <View style={styles.eventRow}>
-                      {event.estimate ? (
-                        <Text style={styles.eventSub}>Est: {Number(event.estimate).toFixed(2)}</Text>
-                      ) : event.quarter ? (
-                        <Text style={styles.eventSub}>{event.quarter}</Text>
-                      ) : (
-                        <Text style={styles.eventSub} />
-                      )}
-                      <View
-                        style={[
-                          styles.eventChangeBadge,
-                          isPositive === null
-                            ? styles.eventChangeNeutral
-                            : isPositive
-                            ? styles.eventChangePositive
-                            : styles.eventChangeNegative,
-                        ]}
-                      >
-                        <Ionicons
-                          name={
-                            isPositive === null
-                              ? 'remove-outline'
-                              : isPositive
-                              ? 'trending-up'
-                              : 'trending-down'
-                          }
-                          size={12}
-                          color={
-                            isPositive === null
-                              ? theme.colors.textSecondary
-                              : isPositive
-                              ? theme.colors.success
-                              : theme.colors.error
-                          }
-                          style={styles.eventChangeIcon}
-                        />
-                        <Text
-                          style={[
-                            styles.eventChangeText,
-                            isPositive === null
-                              ? { color: theme.colors.textSecondary }
-                              : isPositive
-                              ? { color: theme.colors.success }
-                              : { color: theme.colors.error },
-                          ]}
-                        >
-                          {text}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
 
       {economicEvents.length > 0 && (
         <View style={styles.section}>
@@ -501,26 +377,13 @@ export default function NewsSummaryScreen() {
 
       {marketAdvice && (
         <View style={styles.section}>
-          <TouchableOpacity
-            onPress={() => setAdviceExpanded(!adviceExpanded)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons name="trending-up" size={20} color={theme.colors.success} />
-              <Text style={styles.sectionTitle}>Decision Advice</Text>
-              <Ionicons
-                name={adviceExpanded ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={theme.colors.textSecondary}
-                style={{ marginLeft: 'auto' }}
-              />
-            </View>
-          </TouchableOpacity>
-          {adviceExpanded && (
-            <View style={styles.adviceContainer}>
-              {renderTextWithStockLinks(marketAdvice)}
-            </View>
-          )}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="trending-up" size={20} color={theme.colors.success} />
+            <Text style={styles.sectionTitle}>Decision Advice</Text>
+          </View>
+          <View style={styles.adviceContainer}>
+            {renderTextWithStockLinks(marketAdvice)}
+          </View>
         </View>
       )}
 
@@ -688,45 +551,6 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.text,
     marginBottom: 2,
-  },
-  eventSymbol: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  eventSub: {
-    ...theme.typography.small,
-    color: theme.colors.textSecondary,
-    textTransform: 'uppercase',
-  },
-  eventChangeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.sm,
-    marginLeft: theme.spacing.sm,
-  },
-  eventChangePositive: {
-    backgroundColor: theme.colors.success + '15',
-  },
-  eventChangeNegative: {
-    backgroundColor: theme.colors.error + '15',
-  },
-  eventChangeNeutral: {
-    backgroundColor: theme.colors.textSecondary + '15',
-  },
-  eventChangeIcon: {
-    marginRight: 4,
-  },
-  eventChangeText: {
-    ...theme.typography.caption,
-    fontWeight: '600',
   },
   eventMeta: {
     flexDirection: 'row',
