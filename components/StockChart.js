@@ -424,16 +424,16 @@ export default function StockChart({
         visibleFrom.value = newFrom;
         visibleTo.value = newTo;
       }
+
+      // Update React state in real-time for smooth updates
+      const from = visibleFrom.value;
+      const to = visibleTo.value;
+      runOnJS(updateVisibleRange)(from, to);
     })
     .onEnd(() => {
       'worklet';
       baseVisibleFrom.value = visibleFrom.value;
       baseVisibleTo.value = visibleTo.value;
-
-      // Update React state
-      const from = visibleFrom.value;
-      const to = visibleTo.value;
-      runOnJS(updateVisibleRange)(from, to);
     });
 
   // Pan gesture for scrolling through data (works with 1 or 2 fingers)
@@ -469,17 +469,17 @@ export default function StockChart({
 
       visibleFrom.value = newFrom;
       visibleTo.value = newTo;
+
+      // Update React state in real-time for smooth updates
+      const from = visibleFrom.value;
+      const to = visibleTo.value;
+      runOnJS(updateVisibleRange)(from, to);
     })
     .onEnd(() => {
       'worklet';
       basePanOffset.value = panOffset.value;
       baseVisibleFrom.value = visibleFrom.value;
       baseVisibleTo.value = visibleTo.value;
-
-      // Update React state
-      const from = visibleFrom.value;
-      const to = visibleTo.value;
-      runOnJS(updateVisibleRange)(from, to);
     });
 
   // Compose gestures - allow simultaneous pan and pinch

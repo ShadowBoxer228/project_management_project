@@ -25,10 +25,23 @@ import {
 import { getCompanyOverview } from '../services/alphaVantageAPI';
 import { getStockAnalysis } from '../services/perplexityAPI';
 import { getPreviousClose } from '../services/polygonAPI';
-import StockChart from '../components/StockChart';
+import TabBar from '../components/TabBar';
+import TechnicalsTab from '../components/tabs/TechnicalsTab';
+import FinancialsTab from '../components/tabs/FinancialsTab';
+import AnalystRatingTab from '../components/tabs/AnalystRatingTab';
+import DividendsTab from '../components/tabs/DividendsTab';
+import EarningsTab from '../components/tabs/EarningsTab';
 import { getAvailableIndicators } from '../utils/technicalIndicators';
 
 const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
+const TABS = [
+  { id: 'technicals', label: 'Technicals' },
+  { id: 'analyst', label: 'Analyst Rating' },
+  { id: 'financials', label: 'Financials' },
+  { id: 'dividends', label: 'Dividends' },
+  { id: 'earnings', label: 'Earnings' },
+];
+
 const debugLog = (...args) => {
   if (__DEV__) {
     // eslint-disable-next-line no-console
@@ -64,6 +77,8 @@ export default function StockDetailScreen({ route }) {
   const [timeRange, setTimeRange] = useState('1D');
   const [selectedIndicators, setSelectedIndicators] = useState([]);
   const [showIndicators, setShowIndicators] = useState(false);
+  const [activeTab, setActiveTab] = useState('technicals');
+  const [expandedInsights, setExpandedInsights] = useState(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -188,6 +203,18 @@ export default function StockDetailScreen({ route }) {
     Linking.openURL(url).catch((error) => console.error('Failed to open insight link:', error));
   };
 
+  const toggleInsightExpanded = (index) => {
+    setExpandedInsights((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -196,8 +223,64 @@ export default function StockDetailScreen({ route }) {
     );
   }
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'technicals':
+        return (
+          <TechnicalsTab
+            symbol={symbol}
+            name={name}
+            currentPrice={currentPrice}
+            chartType={chartType}
+            timeRange={timeRange}
+            selectedIndicators={selectedIndicators}
+            onChartTypeChange={setChartType}
+            onTimeRangeChange={setTimeRange}
+            setSelectedIndicators={setSelectedIndicators}
+            showIndicators={showIndicators}
+            setShowIndicators={setShowIndicators}
+          />
+        );
+      case 'analyst':
+        return (
+          <AnalystRatingTab
+            symbol={symbol}
+            name={name}
+            currentPrice={currentPrice}
+          />
+        );
+      case 'financials':
+        return (
+          <FinancialsTab
+            financials={financials}
+            overview={overview}
+          />
+        );
+      case 'dividends':
+        return (
+          <DividendsTab
+            symbol={symbol}
+            name={name}
+            financials={financials}
+            overview={overview}
+          />
+        );
+      case 'earnings':
+        return (
+          <EarningsTab
+            symbol={symbol}
+            name={name}
+            financials={financials}
+            overview={overview}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={styles.companyName}>{name}</Text>
@@ -230,8 +313,88 @@ export default function StockDetailScreen({ route }) {
           )}
         </View>
       </View>
+      
+      <TabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      {renderTabContent()}
+    </View>
+  );
+}
 
-      <View style={styles.chartTypeContainer}>
+const MetricItem = ({ label, value }) => (
+  <View style={styles.metricItem}>
+    <Text style={styles.metricLabel}>{label}</Text>
+    <Text style={styles.metricValue}>{value}</Text>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  companyName: {
+    ...theme.typography.h2,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  symbol: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  price: {
+    ...theme.typography.h1,
+    color: theme.colors.text,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  changeContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  change: {
+    ...theme.typography.body,
+    fontWeight: '600',
+  },
+  changeUnavailable: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+  },
+  metricItem: {
+    width: '50%',
+    paddingHorizontal: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  metricLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  metricValue: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+});
         <View style={styles.chartTypeButtons}>
           <TouchableOpacity
             style={[styles.chartTypeButton, chartType === 'line' && styles.chartTypeButtonActive]}
@@ -430,32 +593,50 @@ export default function StockDetailScreen({ route }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>AI Market Insights</Text>
         {aiInsights.length > 0 ? (
-          aiInsights.map((insight, index) => (
-            <TouchableOpacity
-              key={`${insight.url || insight.title}-${index}`}
-              style={styles.insightCard}
-              onPress={() => handleOpenLink(insight.url)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.insightTitle}>{insight.title}</Text>
-              {insight.snippet ? (
-                <Text style={styles.insightSnippet} numberOfLines={3}>
-                  {insight.snippet}
-                </Text>
-              ) : null}
-              <View style={styles.insightMeta}>
-                {insight.url ? (
-                  <Text style={styles.insightSource}>{getSourceFromUrl(insight.url)}</Text>
+          aiInsights.map((insight, index) => {
+            const isExpanded = expandedInsights.has(index);
+            return (
+              <View key={`${insight.url || insight.title}-${index}`} style={styles.insightCard}>
+                <TouchableOpacity
+                  onPress={() => toggleInsightExpanded(index)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.insightHeader}>
+                    <Text style={styles.insightTitle}>{insight.title}</Text>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  </View>
+                </TouchableOpacity>
+                {insight.snippet ? (
+                  <Text 
+                    style={styles.insightSnippet} 
+                    numberOfLines={isExpanded ? undefined : 3}
+                  >
+                    {insight.snippet}
+                  </Text>
                 ) : null}
-                {insight.date ? (
-                  <>
-                    {insight.url ? <Text style={styles.insightDivider}>•</Text> : null}
-                    <Text style={styles.insightDate}>{formatInsightDate(insight.date)}</Text>
-                  </>
-                ) : null}
+                <View style={styles.insightMeta}>
+                  {insight.url ? (
+                    <TouchableOpacity onPress={() => handleOpenLink(insight.url)}>
+                      <View style={styles.insightSourceLink}>
+                        <Text style={styles.insightSource}>{getSourceFromUrl(insight.url)}</Text>
+                        <Ionicons name="open-outline" size={14} color={theme.colors.primary} />
+                      </View>
+                    </TouchableOpacity>
+                  ) : null}
+                  {insight.date ? (
+                    <>
+                      {insight.url ? <Text style={styles.insightDivider}>•</Text> : null}
+                      <Text style={styles.insightDate}>{formatInsightDate(insight.date)}</Text>
+                    </>
+                  ) : null}
+                </View>
               </View>
-            </TouchableOpacity>
-          ))
+            );
+          })
         ) : (
           <Text style={styles.noDataText}>{aiInsightsMessage}</Text>
         )}
@@ -744,16 +925,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  insightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   insightTitle: {
     ...theme.typography.body,
     color: theme.colors.text,
     fontWeight: '600',
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 8,
   },
   insightSnippet: {
     ...theme.typography.small,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
+    lineHeight: 20,
+  },
+  insightSourceLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   insightMeta: {
     flexDirection: 'row',

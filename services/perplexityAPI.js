@@ -167,12 +167,53 @@ const mapInsightTextToItems = (text, symbol, companyName) => {
   if (!text) return [];
   const sections = text.split(/\n\s*\n/).map((chunk) => chunk.trim()).filter(Boolean);
 
-  return sections.slice(0, 5).map((chunk, idx) => ({
-    title: `${companyName || symbol} Insight ${idx + 1}`,
-    snippet: chunk,
-    url: null,
-    date: new Date().toISOString(),
-  }));
+  return sections.slice(0, 5).map((chunk, idx) => {
+    // Generate meaningful title from content
+    let title = '';
+    
+    // Try to extract a title from the first sentence or key phrases
+    const firstSentence = chunk.split(/[.!?]/)[0].trim();
+    
+    // Common patterns to extract meaningful titles
+    if (firstSentence.match(/recent.*price|price.*action|trading|stock.*movement/i)) {
+      title = 'Price Action';
+    } else if (firstSentence.match(/analyst|rating|upgrade|downgrade|consensus/i)) {
+      title = 'Analyst Sentiment';
+    } else if (firstSentence.match(/catalyst|upcoming|event|earnings|launch/i)) {
+      title = 'Upcoming Catalysts';
+    } else if (firstSentence.match(/technical|support|resistance|trend|momentum/i)) {
+      title = 'Technical Outlook';
+    } else if (firstSentence.match(/risk|concern|challenge|headwind|warning/i)) {
+      title = 'Risk Factors';
+    } else if (firstSentence.match(/revenue|growth|earnings|profit|performance/i)) {
+      title = 'Financial Performance';
+    } else if (firstSentence.match(/market.*share|competition|competitor/i)) {
+      title = 'Market Position';
+    } else if (firstSentence.match(/valuation|expensive|cheap|overvalued|undervalued/i)) {
+      title = 'Valuation Analysis';
+    } else {
+      // Fallback: extract first 2-3 meaningful words
+      const words = firstSentence
+        .replace(/^(The|A|An|This|That|These|Those)\s+/i, '')
+        .split(/\s+/)
+        .filter(w => w.length > 3);
+      title = words.slice(0, 3).join(' ');
+      // Capitalize first letter of each word
+      title = title.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      // Limit length
+      if (title.length > 25) {
+        title = words.slice(0, 2).join(' ');
+        title = title.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      }
+    }
+
+    return {
+      title: title || `Insight ${idx + 1}`,
+      snippet: chunk,
+      url: null,
+      date: new Date().toISOString(),
+    };
+  });
 };
 
 const mapPortfolioInsightsToItems = (text) => {
@@ -573,4 +614,234 @@ Format each insight as:
   console.log('[PerplexityAPI] Portfolio insights success:', insightsItems.length, 'items');
   setCachedData(cacheKey, insightsItems);
   return insightsItems;
+};
+
+export const getTechnicalAnalysisInsights = async (symbol, companyName, currentPrice) => {
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `technical_insights_${symbol}_${todayIso}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log(`[PerplexityAPI] Returning cached technical insights for ${symbol}`);
+    return cached;
+  }
+
+  console.log(`[PerplexityAPI] Fetching technical insights for ${symbol}`);
+
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a technical analyst providing concise market insights based on chart patterns and technical indicators.',
+      },
+      {
+        role: 'user',
+        content: `Provide a brief technical analysis summary for ${companyName || symbol} (current price: $${currentPrice}). Include:
+- Current trend direction (bullish/bearish/neutral)
+- Key support and resistance levels
+- Momentum assessment
+- Overall technical outlook
+
+Keep it to 3-4 sentences, actionable and clear.`,
+      },
+    ],
+    maxTokens: 300,
+    temperature: 0.3,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    return null;
+  }
+
+  const summary = completionResponse.content.replace(/\*\*/g, '').replace(/\[[\d,\s]+\]/g, '').trim();
+  setCachedData(cacheKey, summary);
+  return summary;
+};
+
+export const getAnalystRatingInsights = async (symbol, companyName, currentPrice) => {
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `analyst_rating_${symbol}_${todayIso}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log(`[PerplexityAPI] Returning cached analyst rating for ${symbol}`);
+    return cached;
+  }
+
+  console.log(`[PerplexityAPI] Fetching analyst rating for ${symbol}`);
+
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a financial analyst aggregating Wall Street analyst opinions. Provide structured analysis.',
+      },
+      {
+        role: 'user',
+        content: `Analyze recent Wall Street analyst ratings and price targets for ${companyName || symbol} (${symbol}, current price $${currentPrice}).
+
+Provide a structured response with:
+1. CONSENSUS: One word (Strong Buy/Buy/Hold/Sell/Strong Sell)
+2. RATING_BREAKDOWN: Estimated distribution (e.g., "15 Strong Buy, 8 Buy, 5 Hold, 2 Sell")
+3. PRICE_TARGET: Average 12-month price target with range (e.g., "$350 (range $300-$400)")
+4. KEY_POINTS: 2-3 bullet points about recent analyst actions and reasoning
+
+Format exactly as shown above with clear labels.`,
+      },
+    ],
+    maxTokens: 400,
+    temperature: 0.3,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    return null;
+  }
+
+  const content = completionResponse.content.replace(/\*\*/g, '').replace(/\[[\d,\s]+\]/g, '').trim();
+  
+  // Parse the structured response
+  const result = {
+    consensus: 'Hold',
+    ratingBreakdown: '',
+    priceTarget: 'N/A',
+    priceTargetHigh: null,
+    priceTargetLow: null,
+    keyPoints: [],
+  };
+
+  const lines = content.split('\n').filter(line => line.trim());
+  
+  for (const line of lines) {
+    if (line.includes('CONSENSUS:')) {
+      const match = line.match(/CONSENSUS:\s*(.+)/i);
+      if (match) result.consensus = match[1].trim();
+    } else if (line.includes('RATING_BREAKDOWN:')) {
+      const match = line.match(/RATING_BREAKDOWN:\s*(.+)/i);
+      if (match) result.ratingBreakdown = match[1].trim();
+    } else if (line.includes('PRICE_TARGET:')) {
+      const match = line.match(/PRICE_TARGET:\s*(.+)/i);
+      if (match) {
+        result.priceTarget = match[1].trim();
+        // Try to extract high/low from range
+        const rangeMatch = match[1].match(/\$(\d+(?:\.\d+)?)\s*(?:-|to)\s*\$(\d+(?:\.\d+)?)/);
+        if (rangeMatch) {
+          result.priceTargetLow = parseFloat(rangeMatch[1]);
+          result.priceTargetHigh = parseFloat(rangeMatch[2]);
+        }
+      }
+    } else if (line.includes('KEY_POINTS:')) {
+      // Skip the label line
+      continue;
+    } else if (line.match(/^[-•*]\s+/)) {
+      result.keyPoints.push(line.replace(/^[-•*]\s+/, '').trim());
+    }
+  }
+
+  setCachedData(cacheKey, result);
+  return result;
+};
+
+export const getDividendInsights = async (symbol, companyName, dividendYield, dividendAmount) => {
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `dividend_insights_${symbol}_${todayIso}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log(`[PerplexityAPI] Returning cached dividend insights for ${symbol}`);
+    return cached;
+  }
+
+  console.log(`[PerplexityAPI] Fetching dividend insights for ${symbol}`);
+
+  const yieldText = dividendYield ? `${(dividendYield * 100).toFixed(2)}%` : 'unknown';
+  const amountText = dividendAmount ? `$${dividendAmount.toFixed(2)}` : 'unknown';
+
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a dividend investment analyst providing insights on dividend sustainability and growth.',
+      },
+      {
+        role: 'user',
+        content: `Analyze the dividend profile for ${companyName || symbol} (current yield: ${yieldText}, amount: ${amountText}).
+
+Provide 3-4 concise insights covering:
+- Dividend history and consistency
+- Payout sustainability
+- Growth prospects
+- How it compares to peers
+
+Keep each point to 1-2 sentences.`,
+      },
+    ],
+    maxTokens: 400,
+    temperature: 0.3,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    return [];
+  }
+
+  const content = completionResponse.content.replace(/\*\*/g, '').replace(/\[[\d,\s]+\]/g, '').trim();
+  
+  // Split into bullet points
+  const insights = content
+    .split(/\n+/)
+    .map(line => line.replace(/^[-•*\d.)\s]+/, '').trim())
+    .filter(line => line.length > 20)
+    .slice(0, 4);
+
+  setCachedData(cacheKey, insights);
+  return insights;
+};
+
+export const getEarningsInsights = async (symbol, companyName, nextEarningsDate) => {
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cacheKey = `earnings_insights_${symbol}_${todayIso}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log(`[PerplexityAPI] Returning cached earnings insights for ${symbol}`);
+    return cached;
+  }
+
+  console.log(`[PerplexityAPI] Fetching earnings insights for ${symbol}`);
+
+  const dateText = nextEarningsDate || 'upcoming';
+
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an earnings analyst providing insights on company financial performance and expectations.',
+      },
+      {
+        role: 'user',
+        content: `Analyze recent earnings performance and outlook for ${companyName || symbol} (next earnings: ${dateText}).
+
+Provide 3-4 concise insights covering:
+- Recent earnings beat/miss history
+- Revenue and profit trends
+- Key metrics investors are watching
+- What to expect in upcoming report
+
+Keep each point to 1-2 sentences.`,
+      },
+    ],
+    maxTokens: 400,
+    temperature: 0.3,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    return [];
+  }
+
+  const content = completionResponse.content.replace(/\*\*/g, '').replace(/\[[\d,\s]+\]/g, '').trim();
+  
+  // Split into bullet points
+  const insights = content
+    .split(/\n+/)
+    .map(line => line.replace(/^[-•*\d.)\s]+/, '').trim())
+    .filter(line => line.length > 20)
+    .slice(0, 4);
+
+  setCachedData(cacheKey, insights);
+  return insights;
 };
