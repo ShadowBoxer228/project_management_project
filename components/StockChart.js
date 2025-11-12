@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
-import { GestureHandlerRootView, PinchGestureHandler, PanGestureHandler, State } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, useAnimatedGestureHandler, withSpring } from 'react-native-reanimated';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
@@ -213,7 +213,6 @@ export default function StockChart({
   // Gesture handling for zoom and pan
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
-  const focalX = useSharedValue(0);
   const baseScale = useSharedValue(1);
   const baseTranslateX = useSharedValue(0);
 
@@ -332,43 +331,37 @@ export default function StockChart({
     return `${price} • ${formattedTime}`;
   }, [latestValue, timeRange]);
 
-  // Pinch gesture handler for zoom
-  const pinchHandler = useAnimatedGestureHandler({
-    onStart: (event) => {
+  // Pinch gesture for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
       baseScale.value = scale.value;
-      focalX.value = event.focalX;
-    },
-    onActive: (event) => {
+    })
+    .onUpdate((event) => {
       const newScale = baseScale.value * event.scale;
       // Limit zoom between 1x and 5x
       scale.value = Math.min(Math.max(newScale, 1), 5);
-
-      // Adjust translation based on focal point
-      const scaleDiff = scale.value - baseScale.value;
-      const adjustment = (focalX.value - CHART_WIDTH / 2) * scaleDiff;
-      translateX.value = baseTranslateX.value - adjustment;
-    },
-    onEnd: () => {
+    })
+    .onEnd(() => {
       baseScale.value = scale.value;
-      baseTranslateX.value = translateX.value;
-    },
-  });
+    });
 
-  // Pan gesture handler
-  const panHandler = useAnimatedGestureHandler({
-    onStart: () => {
+  // Pan gesture for scrolling
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
       baseTranslateX.value = translateX.value;
-    },
-    onActive: (event) => {
+    })
+    .onUpdate((event) => {
       const maxTranslate = (CHART_WIDTH * (scale.value - 1)) / 2;
       const newTranslate = baseTranslateX.value + event.translationX;
       // Constrain panning within bounds
       translateX.value = Math.min(Math.max(newTranslate, -maxTranslate), maxTranslate);
-    },
-    onEnd: () => {
+    })
+    .onEnd(() => {
       baseTranslateX.value = translateX.value;
-    },
-  });
+    });
+
+  // Compose gestures - allow simultaneous pan and pinch
+  const composedGestures = Gesture.Simultaneous(panGesture, pinchGesture);
 
   // Animated style for the chart container
   const animatedStyle = useAnimatedStyle(() => {
@@ -415,80 +408,76 @@ export default function StockChart({
       </View>
 
       <View style={styles.chartContainer}>
-        <PanGestureHandler onGestureEvent={panHandler} minPointers={1} maxPointers={1}>
-          <Animated.View>
-            <PinchGestureHandler onGestureEvent={pinchHandler}>
-              <Animated.View style={[styles.chartWrapper, animatedStyle]}>
-                {chartType === 'candle' ? (
-                  <CandlestickChart.Provider data={data}>
-                    <CandlestickChart
-                      height={CHART_HEIGHT}
-                      width={CHART_WIDTH}
-                    >
-                      <CandlestickChart.Candles
-                        positiveColor={theme.colors.success}
-                        negativeColor={theme.colors.error}
-                      />
-                      <CandlestickChart.Crosshair>
-                        <CandlestickChart.Tooltip>
-                          {({ data: tooltipData }) => (
-                            <ChartTooltip
-                              data={tooltipData}
-                              chartType="candle"
-                              timeRange={timeRange}
-                            />
-                          )}
-                        </CandlestickChart.Tooltip>
-                      </CandlestickChart.Crosshair>
-                    </CandlestickChart>
-                    <CandlestickChart.PriceText
-                      style={styles.priceText}
-                      precision={2}
-                      variant="formatted"
-                    />
-                  </CandlestickChart.Provider>
-                ) : (
-                  <LineChart.Provider data={data}>
-                    <LineChart
-                      height={CHART_HEIGHT}
-                      width={CHART_WIDTH}
-                    >
-                      <LineChart.Path
-                        color={isPositive ? theme.colors.success : theme.colors.error}
-                        width={2}
-                      >
-                        <LineChart.Gradient
-                          color={isPositive ? theme.colors.success : theme.colors.error}
+        <GestureDetector gesture={composedGestures}>
+          <Animated.View style={[styles.chartWrapper, animatedStyle]}>
+            {chartType === 'candle' ? (
+              <CandlestickChart.Provider data={data}>
+                <CandlestickChart
+                  height={CHART_HEIGHT}
+                  width={CHART_WIDTH}
+                >
+                  <CandlestickChart.Candles
+                    positiveColor={theme.colors.success}
+                    negativeColor={theme.colors.error}
+                  />
+                  <CandlestickChart.Crosshair>
+                    <CandlestickChart.Tooltip>
+                      {({ data: tooltipData }) => (
+                        <ChartTooltip
+                          data={tooltipData}
+                          chartType="candle"
+                          timeRange={timeRange}
                         />
-                      </LineChart.Path>
-                      <LineChart.CursorCrosshair>
-                        <LineChart.Tooltip>
-                          {({ data: tooltipData }) => (
-                            <ChartTooltip
-                              data={tooltipData}
-                              chartType="line"
-                              timeRange={timeRange}
-                            />
-                          )}
-                        </LineChart.Tooltip>
-                      </LineChart.CursorCrosshair>
-                      <LineChart.PriceText
-                        style={styles.priceText}
-                        precision={2}
-                        variant="formatted"
-                      />
-                    </LineChart>
-                  </LineChart.Provider>
-                )}
-                <IndicatorOverlays
-                  indicators={indicators}
-                  data={data}
-                  yDomain={yDomain}
+                      )}
+                    </CandlestickChart.Tooltip>
+                  </CandlestickChart.Crosshair>
+                </CandlestickChart>
+                <CandlestickChart.PriceText
+                  style={styles.priceText}
+                  precision={2}
+                  variant="formatted"
                 />
-              </Animated.View>
-            </PinchGestureHandler>
+              </CandlestickChart.Provider>
+            ) : (
+              <LineChart.Provider data={data}>
+                <LineChart
+                  height={CHART_HEIGHT}
+                  width={CHART_WIDTH}
+                >
+                  <LineChart.Path
+                    color={isPositive ? theme.colors.success : theme.colors.error}
+                    width={2}
+                  >
+                    <LineChart.Gradient
+                      color={isPositive ? theme.colors.success : theme.colors.error}
+                    />
+                  </LineChart.Path>
+                  <LineChart.CursorCrosshair>
+                    <LineChart.Tooltip>
+                      {({ data: tooltipData }) => (
+                        <ChartTooltip
+                          data={tooltipData}
+                          chartType="line"
+                          timeRange={timeRange}
+                        />
+                      )}
+                    </LineChart.Tooltip>
+                  </LineChart.CursorCrosshair>
+                  <LineChart.PriceText
+                    style={styles.priceText}
+                    precision={2}
+                    variant="formatted"
+                  />
+                </LineChart>
+              </LineChart.Provider>
+            )}
+            <IndicatorOverlays
+              indicators={indicators}
+              data={data}
+              yDomain={yDomain}
+            />
           </Animated.View>
-        </PanGestureHandler>
+        </GestureDetector>
 
         {indicators.length > 0 && (
           <View style={styles.indicatorLegend}>

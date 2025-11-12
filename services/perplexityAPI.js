@@ -312,3 +312,85 @@ export const getStockAnalysis = async (symbol, companyName) => {
   setCachedData(cacheKey, result);
   return result;
 };
+
+export const getPortfolioInsights = async (holdings, prices) => {
+  if (!holdings || holdings.length === 0) {
+    return 'Your portfolio is empty. Add stocks to receive AI insights.';
+  }
+
+  const todayIso = new Date().toISOString().split('T')[0];
+  const symbols = holdings.map(h => h.symbol).sort().join(',');
+  const cacheKey = `portfolio_insights_${symbols}_${todayIso}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log('[PerplexityAPI] Returning cached portfolio insights');
+    return cached;
+  }
+
+  console.log(`[PerplexityAPI] Fetching portfolio insights for ${holdings.length} holdings`);
+
+  // Build portfolio summary
+  let totalValue = 0;
+  let totalCost = 0;
+  const holdingsSummary = holdings.map(holding => {
+    const currentPrice = prices[holding.symbol] || holding.purchasePrice;
+    const cost = holding.shares * holding.purchasePrice;
+    const value = holding.shares * currentPrice;
+    const gainLoss = value - cost;
+    const gainLossPercent = (gainLoss / cost) * 100;
+
+    totalCost += cost;
+    totalValue += value;
+
+    return `${holding.symbol}: ${holding.shares} shares, bought at $${holding.purchasePrice.toFixed(2)}, current $${currentPrice.toFixed(2)}, ${gainLossPercent >= 0 ? '+' : ''}${gainLossPercent.toFixed(2)}%`;
+  }).join('\n');
+
+  const totalGainLoss = totalValue - totalCost;
+  const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+
+  const completionResponse = await executeCompletion({
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a professional financial advisor providing comprehensive portfolio analysis. Be specific, actionable, and balanced in your assessment.',
+      },
+      {
+        role: 'user',
+        content: `Analyze this investment portfolio and provide insights:
+
+Portfolio Overview:
+Total Value: $${totalValue.toFixed(2)}
+Total Cost Basis: $${totalCost.toFixed(2)}
+Overall Return: ${totalGainLossPercent >= 0 ? '+' : ''}${totalGainLossPercent.toFixed(2)}%
+
+Holdings:
+${holdingsSummary}
+
+Please provide:
+1. **Diversification Analysis**: Assess how well diversified this portfolio is. Are there concentration risks?
+2. **Risk Assessment**: Evaluate the overall risk level. What are the key risks?
+3. **Market Outlook**: Given current market conditions (${todayIso}), what's the outlook for these holdings?
+4. **Rebalancing Suggestions**: Should the investor consider any adjustments? Any stocks to add or reduce?
+
+Keep the analysis concise (6-8 sentences total) but actionable.`,
+      },
+    ],
+    maxTokens: 800,
+    temperature: 0.4,
+  });
+
+  if (!completionResponse || !completionResponse.content) {
+    console.log('[PerplexityAPI] Portfolio insights failed, returning fallback');
+    return 'Unable to generate portfolio insights at this time. Please try again later.';
+  }
+
+  const insights = completionResponse.content
+    .replace(/\*\*/g, '')
+    .replace(/\[[\d,\s]+\]/g, '')
+    .trim();
+
+  console.log('[PerplexityAPI] Portfolio insights success:', insights.length, 'characters');
+  setCachedData(cacheKey, insights);
+  return insights;
+};

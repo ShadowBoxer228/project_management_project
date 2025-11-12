@@ -14,7 +14,10 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import StockListScreen from './screens/StockListScreen.js';
 import StockDetailScreen from './screens/StockDetailScreen.js';
 import NewsSummaryScreen from './screens/NewsSummaryScreen.js';
+import PortfolioScreen from './screens/PortfolioScreen.js';
+import AddEditStockScreen from './screens/AddEditStockScreen.js';
 import { theme } from './utils/theme';
+import { PortfolioProvider } from './context/PortfolioContext';
 
 const debugLog = (...args) => {
   if (__DEV__) {
@@ -108,6 +111,53 @@ function StocksStack() {
   );
 }
 
+function PortfolioStack() {
+  if (__DEV__) {
+    debugLog('Render PortfolioStack');
+  }
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.background,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+        },
+        headerTintColor: theme.colors.text,
+        headerTitleStyle: {
+          fontWeight: '600',
+          fontSize: 17,
+        },
+      }}
+    >
+      <Stack.Screen
+        name="PortfolioMain"
+        component={PortfolioScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AddEditStock"
+        component={AddEditStockScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="StockDetail"
+        component={StockDetailScreen}
+        options={({ route }) => ({
+          title: route.params?.symbol || 'Stock Detail',
+          headerBackTitleVisible: false,
+        })}
+      />
+    </Stack.Navigator>
+  );
+}
+
 export default function App() {
   if (__DEV__) {
     debugLog('Render App component');
@@ -119,56 +169,61 @@ export default function App() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <PaperProvider theme={theme}>
-          <NavigationContainer
-            ref={navigationRef}
-            onStateChange={() => {
-              if (__DEV__) {
-                const current = navigationRef.getCurrentRoute();
-                debugLog('Navigation state changed', {
-                  name: current?.name,
-                  params: current?.params,
-                });
-              }
-            }}
-          >
-            {__DEV__ && debugLog('NavigationContainer mounted')}
-            <StatusBar style="dark" />
-            <Tab.Navigator
-              screenOptions={({ route }) => ({
-                tabBarIcon: ({ focused, color, size }) => {
-                  if (__DEV__) {
-                    debugLog('Render tab icon', { route: route.name, focused });
-                  }
-                  let iconName;
-                  if (route.name === 'Stocks') {
-                    iconName = focused ? 'trending-up' : 'trending-up-outline';
-                  } else if (route.name === 'News') {
-                    iconName = focused ? 'newspaper' : 'newspaper-outline';
-                  }
-                  return <Ionicons name={iconName} size={size} color={color} />;
-                },
-                tabBarActiveTintColor: theme.colors.primary,
-                tabBarInactiveTintColor: theme.colors.textSecondary,
-                tabBarStyle: {
-                  backgroundColor: theme.colors.background,
-                  borderTopColor: theme.colors.border,
-                  borderTopWidth: 1,
-                  paddingTop: 5,
-                  height: 85,
-                  paddingBottom: 30,
-                },
-                tabBarLabelStyle: {
-                  fontSize: 11,
-                  fontWeight: '600',
-                  marginTop: -5,
-                },
-                headerShown: false,
-              })}
+          <PortfolioProvider>
+            <NavigationContainer
+              ref={navigationRef}
+              onStateChange={() => {
+                if (__DEV__) {
+                  const current = navigationRef.getCurrentRoute();
+                  debugLog('Navigation state changed', {
+                    name: current?.name,
+                    params: current?.params,
+                  });
+                }
+              }}
             >
-              <Tab.Screen name="Stocks" component={StocksStack} />
-              <Tab.Screen name="News" component={NewsSummaryScreen} />
-            </Tab.Navigator>
-          </NavigationContainer>
+              {__DEV__ && debugLog('NavigationContainer mounted')}
+              <StatusBar style="dark" />
+              <Tab.Navigator
+                screenOptions={({ route }) => ({
+                  tabBarIcon: ({ focused, color, size }) => {
+                    if (__DEV__) {
+                      debugLog('Render tab icon', { route: route.name, focused });
+                    }
+                    let iconName;
+                    if (route.name === 'Stocks') {
+                      iconName = focused ? 'trending-up' : 'trending-up-outline';
+                    } else if (route.name === 'Portfolio') {
+                      iconName = focused ? 'briefcase' : 'briefcase-outline';
+                    } else if (route.name === 'News') {
+                      iconName = focused ? 'newspaper' : 'newspaper-outline';
+                    }
+                    return <Ionicons name={iconName} size={size} color={color} />;
+                  },
+                  tabBarActiveTintColor: theme.colors.primary,
+                  tabBarInactiveTintColor: theme.colors.textSecondary,
+                  tabBarStyle: {
+                    backgroundColor: theme.colors.background,
+                    borderTopColor: theme.colors.border,
+                    borderTopWidth: 1,
+                    paddingTop: 5,
+                    height: 85,
+                    paddingBottom: 30,
+                  },
+                  tabBarLabelStyle: {
+                    fontSize: 11,
+                    fontWeight: '600',
+                    marginTop: -5,
+                  },
+                  headerShown: false,
+                })}
+              >
+                <Tab.Screen name="Stocks" component={StocksStack} />
+                <Tab.Screen name="Portfolio" component={PortfolioStack} />
+                <Tab.Screen name="News" component={NewsSummaryScreen} />
+              </Tab.Navigator>
+            </NavigationContainer>
+          </PortfolioProvider>
         </PaperProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
