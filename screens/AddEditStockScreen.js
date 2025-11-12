@@ -129,6 +129,14 @@ const AddEditStockScreen = ({ navigation, route }) => {
    * Validate form inputs
    */
   const validateForm = () => {
+    if (__DEV__) {
+      console.log('[AddEditStock] validateForm called', {
+        selectedStock: selectedStock?.symbol,
+        shares,
+        purchasePrice,
+      });
+    }
+
     if (!selectedStock) {
       Alert.alert('Error', 'Please select a stock');
       return false;
@@ -136,16 +144,25 @@ const AddEditStockScreen = ({ navigation, route }) => {
 
     const sharesNum = parseFloat(shares);
     if (!shares || isNaN(sharesNum) || sharesNum <= 0) {
+      if (__DEV__) {
+        console.log('[AddEditStock] Invalid shares:', shares);
+      }
       Alert.alert('Error', 'Please enter a valid number of shares');
       return false;
     }
 
     const priceNum = parseFloat(purchasePrice);
     if (!purchasePrice || isNaN(priceNum) || priceNum <= 0) {
+      if (__DEV__) {
+        console.log('[AddEditStock] Invalid price:', purchasePrice);
+      }
       Alert.alert('Error', 'Please enter a valid purchase price');
       return false;
     }
 
+    if (__DEV__) {
+      console.log('[AddEditStock] Validation passed');
+    }
     return true;
   };
 
@@ -153,7 +170,21 @@ const AddEditStockScreen = ({ navigation, route }) => {
    * Handle save
    */
   const handleSave = async () => {
-    if (!validateForm()) return;
+    if (__DEV__) {
+      console.log('[AddEditStock] handleSave called', {
+        selectedStock: selectedStock?.symbol,
+        shares,
+        purchasePrice,
+        mode,
+      });
+    }
+
+    if (!validateForm()) {
+      if (__DEV__) {
+        console.log('[AddEditStock] Validation failed');
+      }
+      return;
+    }
 
     try {
       setLoading(true);
@@ -167,11 +198,19 @@ const AddEditStockScreen = ({ navigation, route }) => {
         notes: notes.trim(),
       };
 
+      if (__DEV__) {
+        console.log('[AddEditStock] Saving holding data:', holdingData);
+      }
+
       let success;
       if (isEditMode) {
         success = await updateHolding(existingHolding.id, holdingData);
       } else {
         success = await addHolding(holdingData);
+      }
+
+      if (__DEV__) {
+        console.log('[AddEditStock] Save result:', success);
       }
 
       if (success) {
@@ -180,7 +219,7 @@ const AddEditStockScreen = ({ navigation, route }) => {
         Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'add'} holding`);
       }
     } catch (error) {
-      console.error('Error saving holding:', error);
+      console.error('[AddEditStock] Error saving holding:', error);
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
