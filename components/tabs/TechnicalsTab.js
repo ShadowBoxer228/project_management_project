@@ -5,11 +5,16 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import { getTechnicalAnalysisInsights } from '../../services/perplexityAPI';
 import { getRSI, getSMA } from '../../services/alphaVantageAPI';
 import StockChart from '../StockChart';
+import { getAvailableIndicators } from '../../utils/technicalIndicators';
+
+const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
 const TechnicalsTab = ({ symbol, name, currentPrice, chartType, timeRange, selectedIndicators, onChartTypeChange, onTimeRangeChange, setSelectedIndicators, showIndicators, setShowIndicators }) => {
   const [loading, setLoading] = useState(true);
@@ -136,6 +141,96 @@ const TechnicalsTab = ({ symbol, name, currentPrice, chartType, timeRange, selec
         </View>
       </View>
 
+      {/* Chart Controls */}
+      <View style={styles.chartControlsContainer}>
+        <View style={styles.chartTypeButtons}>
+          <TouchableOpacity
+            style={[styles.chartTypeButton, chartType === 'line' && styles.chartTypeButtonActive]}
+            onPress={() => onChartTypeChange('line')}
+          >
+            <Text
+              style={[
+                styles.chartTypeButtonText,
+                chartType === 'line' && styles.chartTypeButtonTextActive,
+              ]}
+            >
+              Line
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.chartTypeButton,
+              chartType === 'candle' && styles.chartTypeButtonActive,
+            ]}
+            onPress={() => onChartTypeChange('candle')}
+          >
+            <Text
+              style={[
+                styles.chartTypeButtonText,
+                chartType === 'candle' && styles.chartTypeButtonTextActive,
+              ]}
+            >
+              Candle
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.indicatorsButton}
+          onPress={() => setShowIndicators(!showIndicators)}
+        >
+          <Ionicons
+            name="analytics-outline"
+            size={18}
+            color={selectedIndicators.length > 0 ? theme.colors.primary : theme.colors.textSecondary}
+          />
+          <Text style={[
+            styles.indicatorsButtonText,
+            selectedIndicators.length > 0 && styles.indicatorsButtonTextActive
+          ]}>
+            Indicators{selectedIndicators.length > 0 ? ` (${selectedIndicators.length})` : ''}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {showIndicators && (
+        <View style={styles.indicatorSelector}>
+          <Text style={styles.indicatorSelectorTitle}>Technical Indicators</Text>
+          <View style={styles.indicatorGrid}>
+            {getAvailableIndicators().map((indicator) => {
+              const isSelected = selectedIndicators.includes(indicator.id);
+              return (
+                <TouchableOpacity
+                  key={indicator.id}
+                  style={[
+                    styles.indicatorChip,
+                    isSelected && styles.indicatorChipActive
+                  ]}
+                  onPress={() => {
+                    setSelectedIndicators((prev) =>
+                      isSelected
+                        ? prev.filter((id) => id !== indicator.id)
+                        : [...prev, indicator.id]
+                    );
+                  }}
+                >
+                  <View style={[styles.indicatorColorDot, { backgroundColor: indicator.color }]} />
+                  <Text style={[
+                    styles.indicatorChipText,
+                    isSelected && styles.indicatorChipTextActive
+                  ]}>
+                    {indicator.name}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       {/* Chart */}
       <View style={styles.chartSection}>
         <StockChart
@@ -145,6 +240,34 @@ const TechnicalsTab = ({ symbol, name, currentPrice, chartType, timeRange, selec
           selectedIndicators={selectedIndicators}
         />
       </View>
+
+      {/* Time Range Selector */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.timeRangeContainer}
+        contentContainerStyle={styles.timeRangeContent}
+      >
+        {TIME_RANGES.map((range) => (
+          <TouchableOpacity
+            key={range}
+            style={[
+              styles.timeRangeButton,
+              timeRange === range && styles.timeRangeButtonActive,
+            ]}
+            onPress={() => onTimeRangeChange(range)}
+          >
+            <Text
+              style={[
+                styles.timeRangeButtonText,
+                timeRange === range && styles.timeRangeButtonTextActive,
+              ]}
+            >
+              {range}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {/* Oscillators */}
       <View style={styles.section}>
@@ -227,8 +350,137 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   chartSection: {
+    marginBottom: theme.spacing.sm,
+  },
+  chartControlsContainer: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    paddingBottom: theme.spacing.md,
+  },
+  chartTypeButtons: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: 4,
+    flex: 1,
+  },
+  chartTypeButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: theme.borderRadius.sm,
+  },
+  chartTypeButtonActive: {
+    backgroundColor: theme.colors.background,
+  },
+  chartTypeButtonText: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  chartTypeButtonTextActive: {
+    color: theme.colors.text,
+  },
+  indicatorsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  indicatorsButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  indicatorsButtonTextActive: {
+    color: theme.colors.primary,
+  },
+  indicatorSelector: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  indicatorSelectorTitle: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    fontWeight: '600',
+    marginBottom: theme.spacing.sm,
+  },
+  indicatorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  indicatorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  indicatorChipActive: {
+    backgroundColor: theme.colors.primary + '15',
+    borderColor: theme.colors.primary,
+  },
+  indicatorColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  indicatorChipText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  indicatorChipTextActive: {
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+  timeRangeContainer: {
+    marginBottom: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  timeRangeContent: {
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
+  timeRangeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surface,
+  },
+  timeRangeButtonActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  timeRangeButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  timeRangeButtonTextActive: {
+    color: theme.colors.background,
   },
   sectionTitle: {
     ...theme.typography.h3,

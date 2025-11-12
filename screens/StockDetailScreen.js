@@ -2,28 +2,19 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import {
   formatCurrency,
-  formatLargeNumber,
   formatPercentage,
-  formatVolume,
-  formatDateTime,
 } from '../utils/formatters';
 import {
   getBasicFinancials,
-  getCompanyNews,
   getCompanyProfile,
 } from '../services/finnhubAPI';
 import { getCompanyOverview } from '../services/alphaVantageAPI';
-import { getStockAnalysis } from '../services/perplexityAPI';
 import { getPreviousClose } from '../services/polygonAPI';
 import TabBar from '../components/TabBar';
 import TechnicalsTab from '../components/tabs/TechnicalsTab';
@@ -31,9 +22,7 @@ import FinancialsTab from '../components/tabs/FinancialsTab';
 import AnalystRatingTab from '../components/tabs/AnalystRatingTab';
 import DividendsTab from '../components/tabs/DividendsTab';
 import EarningsTab from '../components/tabs/EarningsTab';
-import { getAvailableIndicators } from '../utils/technicalIndicators';
 
-const TIME_RANGES = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 const TABS = [
   { id: 'technicals', label: 'Technicals' },
   { id: 'analyst', label: 'Analyst Rating' },
@@ -49,45 +38,21 @@ const debugLog = (...args) => {
   }
 };
 
-const parseNumber = (value) => {
-  if (value === null || value === undefined || value === '') return null;
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.replace(/,/g, '').trim();
-    if (normalized === '') return null;
-    const numeric = Number(normalized);
-    return Number.isFinite(numeric) ? numeric : null;
-  }
-  return null;
-};
-
 export default function StockDetailScreen({ route }) {
   const { symbol, name } = route.params;
   const [quote, setQuote] = useState(null);
   const [financials, setFinancials] = useState(null);
-  const [news, setNews] = useState([]);
   const [profile, setProfile] = useState(null);
   const [overview, setOverview] = useState(null);
-  const [aiInsights, setAiInsights] = useState([]);
-  const [aiInsightsMessage, setAiInsightsMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('line');
   const [timeRange, setTimeRange] = useState('1D');
   const [selectedIndicators, setSelectedIndicators] = useState([]);
   const [showIndicators, setShowIndicators] = useState(false);
   const [activeTab, setActiveTab] = useState('technicals');
-  const [expandedInsights, setExpandedInsights] = useState(new Set());
 
   useEffect(() => {
     let isMounted = true;
-
-    const getDateString = (daysOffset) => {
-      const date = new Date();
-      date.setDate(date.getDate() + daysOffset);
-      return date.toISOString().split('T')[0];
-    };
 
     const fetchStockData = async () => {
       debugLog('Fetching stock data', { symbol, name });
@@ -98,15 +63,11 @@ export default function StockDetailScreen({ route }) {
           financialsData,
           profileData,
           overviewData,
-          newsData,
-          aiData,
         ] = await Promise.all([
           getPreviousClose(symbol),
           getBasicFinancials(symbol),
           getCompanyProfile(symbol),
           getCompanyOverview(symbol),
-          getCompanyNews(symbol, getDateString(-7), getDateString(0)),
-          getStockAnalysis(symbol, name),
         ]);
 
         if (!isMounted) return;
@@ -126,26 +87,15 @@ export default function StockDetailScreen({ route }) {
         setFinancials(financialsData);
         setProfile(profileData);
         setOverview(overviewData);
-        setNews(newsData.slice(0, 10));
-        if (Array.isArray(aiData) && aiData.length > 0) {
-          setAiInsights(aiData);
-          setAiInsightsMessage('');
-        } else {
-          setAiInsights([]);
-          setAiInsightsMessage('No AI insights available for this ticker right now.');
-        }
+        
         debugLog('Fetch success', {
           symbol,
           quoteLoaded: Boolean(quoteData),
           financialLoaded: Boolean(financialsData),
-          newsCount: newsData?.length || 0,
-          insightsCount: aiData?.length || 0,
         });
       } catch (error) {
         if (isMounted) {
           console.error('Error fetching stock data:', error);
-          setAiInsights([]);
-          setAiInsightsMessage('Failed to load AI insights. Please try again later.');
           debugLog('Fetch failed', { symbol, error: error?.message });
         }
       } finally {
@@ -165,63 +115,8 @@ export default function StockDetailScreen({ route }) {
   }, [symbol, name]);
 
   const currentPrice = Number.isFinite(quote?.c) ? quote.c : null;
-  const change = Number.isFinite(quote?.d) ? quote.d : null;
   const changePercent = Number.isFinite(quote?.dp) ? quote.dp : null;
-  const isPositive =
-    changePercent !== null ? changePercent >= 0 : change !== null ? change >= 0 : null;
-
-  const metrics = financials?.metric || {};
-  const marketCap = parseNumber(overview?.MarketCapitalization ?? metrics['marketCapitalization']);
-  const peRatio = parseNumber(overview?.PERatio ?? metrics['peBasicExclExtraTTM']);
-  const eps = parseNumber(overview?.EPS ?? metrics['epsBasicExclExtraItemsTTM']);
-  const dividendYield = parseNumber(
-    overview?.DividendYield ?? metrics['dividendYieldIndicatedAnnual']
-  );
-  const week52High = parseNumber(overview?.['52WeekHigh'] ?? metrics['52WeekHigh']);
-  const week52Low = parseNumber(overview?.['52WeekLow'] ?? metrics['52WeekLow']);
-  const beta = parseNumber(overview?.Beta ?? metrics['beta']);
-
-  const formatInsightDate = (value) => {
-    if (!value) return '';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-      ? value
-      : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const getSourceFromUrl = (url) => {
-    if (!url) return '';
-    try {
-      return new URL(url).hostname.replace(/^www\./, '');
-    } catch {
-      return url;
-    }
-  };
-
-  const handleOpenLink = (url) => {
-    if (!url) return;
-    Linking.openURL(url).catch((error) => console.error('Failed to open insight link:', error));
-  };
-
-  const toggleInsightExpanded = (index) => {
-    setExpandedInsights((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
-      }
-      return newSet;
-    });
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  const isPositive = changePercent !== null ? changePercent >= 0 : null;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -279,6 +174,14 @@ export default function StockDetailScreen({ route }) {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -321,13 +224,6 @@ export default function StockDetailScreen({ route }) {
   );
 }
 
-const MetricItem = ({ label, value }) => (
-  <View style={styles.metricItem}>
-    <Text style={styles.metricLabel}>{label}</Text>
-    <Text style={styles.metricValue}>{value}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -378,615 +274,5 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
     marginTop: 4,
-  },
-  metricItem: {
-    width: '50%',
-    paddingHorizontal: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
-  },
-  metricLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  metricValue: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-});
-        <View style={styles.chartTypeButtons}>
-          <TouchableOpacity
-            style={[styles.chartTypeButton, chartType === 'line' && styles.chartTypeButtonActive]}
-            onPress={() => {
-              if (__DEV__) {
-                debugLog('Change chart type', { symbol, type: 'line' });
-              }
-              setChartType('line');
-            }}
-          >
-            <Text
-              style={[
-                styles.chartTypeButtonText,
-                chartType === 'line' && styles.chartTypeButtonTextActive,
-              ]}
-            >
-              Line
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.chartTypeButton,
-              chartType === 'candle' && styles.chartTypeButtonActive,
-            ]}
-            onPress={() => {
-              if (__DEV__) {
-                debugLog('Change chart type', { symbol, type: 'candle' });
-              }
-              setChartType('candle');
-            }}
-          >
-            <Text
-              style={[
-                styles.chartTypeButtonText,
-                chartType === 'candle' && styles.chartTypeButtonTextActive,
-              ]}
-            >
-              Candle
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={styles.indicatorsButton}
-          onPress={() => setShowIndicators(!showIndicators)}
-        >
-          <Ionicons
-            name="analytics-outline"
-            size={18}
-            color={selectedIndicators.length > 0 ? theme.colors.primary : theme.colors.textSecondary}
-          />
-          <Text style={[
-            styles.indicatorsButtonText,
-            selectedIndicators.length > 0 && styles.indicatorsButtonTextActive
-          ]}>
-            Indicators{selectedIndicators.length > 0 ? ` (${selectedIndicators.length})` : ''}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {showIndicators && (
-        <View style={styles.indicatorSelector}>
-          <Text style={styles.indicatorSelectorTitle}>Technical Indicators</Text>
-          <View style={styles.indicatorGrid}>
-            {getAvailableIndicators().map((indicator) => {
-              const isSelected = selectedIndicators.includes(indicator.id);
-              return (
-                <TouchableOpacity
-                  key={indicator.id}
-                  style={[
-                    styles.indicatorChip,
-                    isSelected && styles.indicatorChipActive
-                  ]}
-                  onPress={() => {
-                    setSelectedIndicators((prev) =>
-                      isSelected
-                        ? prev.filter((id) => id !== indicator.id)
-                        : [...prev, indicator.id]
-                    );
-                  }}
-                >
-                  <View style={[styles.indicatorColorDot, { backgroundColor: indicator.color }]} />
-                  <Text style={[
-                    styles.indicatorChipText,
-                    isSelected && styles.indicatorChipTextActive
-                  ]}>
-                    {indicator.name}
-                  </Text>
-                  {isSelected && (
-                    <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      <StockChart
-        symbol={symbol}
-        chartType={chartType}
-        timeRange={timeRange}
-        selectedIndicators={selectedIndicators}
-      />
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.timeRangeContainer}
-        contentContainerStyle={styles.timeRangeContent}
-      >
-        {TIME_RANGES.map((range) => (
-            <TouchableOpacity
-              key={range}
-              style={[
-                styles.timeRangeButton,
-                timeRange === range && styles.timeRangeButtonActive,
-              ]}
-              onPress={() => {
-                if (__DEV__) {
-                  debugLog('Change time range', { symbol, range });
-                }
-                setTimeRange(range);
-              }}
-            >
-            <Text
-              style={[
-                styles.timeRangeButtonText,
-                timeRange === range && styles.timeRangeButtonTextActive,
-              ]}
-            >
-              {range}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Key Statistics</Text>
-        <View style={styles.metricsGrid}>
-          <MetricItem label="Market Cap" value={formatLargeNumber(marketCap)} />
-          <MetricItem label="P/E Ratio" value={peRatio !== null ? peRatio.toFixed(2) : 'N/A'} />
-          <MetricItem label="EPS" value={eps !== null ? formatCurrency(eps) : 'N/A'} />
-          <MetricItem
-            label="Dividend Yield"
-            value={dividendYield !== null ? `${(dividendYield * 100).toFixed(2)}%` : 'N/A'}
-          />
-          <MetricItem
-            label="52W High"
-            value={week52High !== null ? formatCurrency(week52High) : 'N/A'}
-          />
-          <MetricItem
-            label="52W Low"
-            value={week52Low !== null ? formatCurrency(week52Low) : 'N/A'}
-          />
-          <MetricItem label="Beta" value={beta !== null ? beta.toFixed(2) : 'N/A'} />
-          <MetricItem label="Volume" value={formatVolume(quote?.v)} />
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent News</Text>
-        {news.length > 0 ? (
-          news.map((article, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.newsItem}
-              onPress={() => handleOpenLink(article.url)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.newsContent}>
-                <View style={styles.newsTextContainer}>
-                  <Text style={styles.newsHeadline} numberOfLines={2}>
-                    {article.headline}
-                  </Text>
-                  <View style={styles.newsMetadata}>
-                    <Text style={styles.newsSource}>{article.source}</Text>
-                    <Text style={styles.newsDivider}>•</Text>
-                    <Text style={styles.newsDate}>{formatDateTime(article.datetime)}</Text>
-                  </View>
-                </View>
-                <Ionicons
-                  name="open-outline"
-                  size={20}
-                  color={theme.colors.primary}
-                  style={styles.newsIcon}
-                />
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.noDataText}>No recent news available</Text>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI Market Insights</Text>
-        {aiInsights.length > 0 ? (
-          aiInsights.map((insight, index) => {
-            const isExpanded = expandedInsights.has(index);
-            return (
-              <View key={`${insight.url || insight.title}-${index}`} style={styles.insightCard}>
-                <TouchableOpacity
-                  onPress={() => toggleInsightExpanded(index)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.insightHeader}>
-                    <Text style={styles.insightTitle}>{insight.title}</Text>
-                    <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color={theme.colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-                {insight.snippet ? (
-                  <Text 
-                    style={styles.insightSnippet} 
-                    numberOfLines={isExpanded ? undefined : 3}
-                  >
-                    {insight.snippet}
-                  </Text>
-                ) : null}
-                <View style={styles.insightMeta}>
-                  {insight.url ? (
-                    <TouchableOpacity onPress={() => handleOpenLink(insight.url)}>
-                      <View style={styles.insightSourceLink}>
-                        <Text style={styles.insightSource}>{getSourceFromUrl(insight.url)}</Text>
-                        <Ionicons name="open-outline" size={14} color={theme.colors.primary} />
-                      </View>
-                    </TouchableOpacity>
-                  ) : null}
-                  {insight.date ? (
-                    <>
-                      {insight.url ? <Text style={styles.insightDivider}>•</Text> : null}
-                      <Text style={styles.insightDate}>{formatInsightDate(insight.date)}</Text>
-                    </>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })
-        ) : (
-          <Text style={styles.noDataText}>{aiInsightsMessage}</Text>
-        )}
-      </View>
-
-      {profile && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Company Info</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Industry</Text>
-            <Text style={styles.infoValue}>{profile.finnhubIndustry || 'N/A'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Country</Text>
-            <Text style={styles.infoValue}>{profile.country || 'N/A'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Exchange</Text>
-            <Text style={styles.infoValue}>{profile.exchange || 'N/A'}</Text>
-          </View>
-        </View>
-      )}
-    </ScrollView>
-  );
-}
-
-const MetricItem = ({ label, value }) => (
-  <View style={styles.metricItem}>
-    <Text style={styles.metricLabel}>{label}</Text>
-    <Text style={styles.metricValue}>{value}</Text>
-  </View>
-);
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  companyName: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  symbol: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-  },
-  priceContainer: {
-    alignItems: 'flex-end',
-  },
-  price: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  changeContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  change: {
-    ...theme.typography.body,
-    fontWeight: '600',
-  },
-  changeUnavailable: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    marginTop: 4,
-  },
-  chartTypeContainer: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  chartTypeButtons: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: 4,
-    flex: 1,
-  },
-  chartTypeButton: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: theme.borderRadius.sm,
-  },
-  chartTypeButtonActive: {
-    backgroundColor: theme.colors.background,
-    ...theme.shadows.card,
-  },
-  chartTypeButtonText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-  },
-  chartTypeButtonTextActive: {
-    color: theme.colors.text,
-  },
-  indicatorsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 8,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  indicatorsButtonText: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-  },
-  indicatorsButtonTextActive: {
-    color: theme.colors.primary,
-  },
-  indicatorSelector: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
-  },
-  indicatorSelectorTitle: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontWeight: '600',
-    marginBottom: theme.spacing.sm,
-  },
-  indicatorGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  indicatorChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  indicatorChipActive: {
-    backgroundColor: theme.colors.primary + '15',
-    borderColor: theme.colors.primary,
-  },
-  indicatorColorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  indicatorChipText: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  indicatorChipTextActive: {
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  timeRangeContainer: {
-    marginBottom: theme.spacing.md,
-  },
-  timeRangeContent: {
-    paddingHorizontal: theme.spacing.md,
-  },
-  timeRangeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.surface,
-  },
-  timeRangeButtonActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  timeRangeButtonText: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-  },
-  timeRangeButtonTextActive: {
-    color: theme.colors.background,
-  },
-  section: {
-    padding: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  sectionTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -theme.spacing.sm,
-  },
-  metricItem: {
-    width: '50%',
-    paddingHorizontal: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
-  },
-  metricLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  metricValue: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  newsItem: {
-    marginBottom: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  newsContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  newsTextContainer: {
-    flex: 1,
-    marginRight: theme.spacing.sm,
-  },
-  newsHeadline: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    marginBottom: 6,
-    lineHeight: 20,
-  },
-  newsMetadata: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  newsSource: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-  },
-  newsDivider: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    marginHorizontal: 6,
-  },
-  newsDate: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-  },
-  newsIcon: {
-    marginLeft: theme.spacing.sm,
-  },
-  insightCard: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  insightTitle: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontWeight: '600',
-    flex: 1,
-    marginRight: 8,
-  },
-  insightSnippet: {
-    ...theme.typography.small,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
-    lineHeight: 20,
-  },
-  insightSourceLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  insightMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  insightSource: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  insightDivider: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-    marginHorizontal: 6,
-  },
-  insightDate: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-  },
-  noDataText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: theme.spacing.lg,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-  },
-  infoLabel: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-  },
-  infoValue: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontWeight: '600',
   },
 });
