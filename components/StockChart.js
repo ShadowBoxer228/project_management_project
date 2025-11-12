@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LineChart, CandlestickChart } from 'react-native-wagmi-charts';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, runOnJS } from 'react-native-reanimated';
+import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { theme } from '../utils/theme';
 import { getAggregates } from '../services/polygonAPI';
@@ -443,10 +443,10 @@ export default function StockChart({
       baseVisibleTo.value = visibleTo.value;
     });
 
-  // Pan gesture for scrolling through data (1 finger in navigate mode)
+  // Pan gesture for scrolling through data (requires 2 fingers to avoid conflict with crosshair)
   const panGesture = Gesture.Pan()
-    .minPointers(1)
-    .maxPointers(1)
+    .minPointers(2)
+    .maxPointers(2)
     .onStart(() => {
       'worklet';
       basePanOffset.value = panOffset.value;
@@ -533,8 +533,9 @@ export default function StockChart({
 
       <View style={styles.chartContainer}>
         {chartMode === 'navigate' ? (
-          <View style={styles.chartWrapper}>
-            {chartType === 'candle' ? (
+          <GestureDetector gesture={composedGestures}>
+            <View style={styles.chartWrapper}>
+              {chartType === 'candle' ? (
               <CandlestickChart.Provider data={visibleData}>
                 <CandlestickChart
                   height={CHART_HEIGHT}
@@ -563,15 +564,13 @@ export default function StockChart({
                 </LineChart>
               </LineChart.Provider>
             )}
-            <IndicatorOverlays
-              indicators={indicators}
-              data={visibleData}
-              yDomain={yDomain}
-            />
-            <GestureDetector gesture={composedGestures}>
-              <Animated.View style={styles.gestureOverlay} />
-            </GestureDetector>
-          </View>
+              <IndicatorOverlays
+                indicators={indicators}
+                data={visibleData}
+                yDomain={yDomain}
+              />
+            </View>
+          </GestureDetector>
         ) : (
           <View style={styles.chartWrapper}>
             {chartType === 'candle' ? (
@@ -703,7 +702,7 @@ export default function StockChart({
         <Text style={styles.instructionsText}>
           {chartMode === 'inspect'
             ? 'Tap & hold to view prices at any point'
-            : 'Pinch to zoom, drag to pan the chart'}
+            : 'Use 2 fingers to zoom and pan the chart'}
         </Text>
       </View>
     </View>
@@ -754,15 +753,6 @@ const styles = StyleSheet.create({
   chartWrapper: {
     position: 'relative',
     overflow: 'hidden',
-  },
-  gestureOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: CHART_WIDTH,
-    height: CHART_HEIGHT,
   },
   priceText: {
     ...theme.typography.caption,
@@ -823,16 +813,6 @@ const styles = StyleSheet.create({
   domainText: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
-  },
-  zoomIndicator: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  zoomIndicatorText: {
-    ...theme.typography.caption,
-    color: theme.colors.primary,
-    fontWeight: '600',
-    fontSize: 11,
   },
   modeToggleContainer: {
     flexDirection: 'row',
