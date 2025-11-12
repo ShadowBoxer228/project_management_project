@@ -109,7 +109,7 @@ export default function StockListScreen({ navigation }) {
   const [quotes, setQuotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedSector, setSelectedSector] = useState('All');
-  const [sortBy, setSortBy] = useState('symbol-asc');
+  const [sortBy, setSortBy] = useState('marketcap-desc');
   const [showSortModal, setShowSortModal] = useState(false);
 
   // Fetch all quotes in bulk
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     marginRight: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.primary,
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   modalContent: {
