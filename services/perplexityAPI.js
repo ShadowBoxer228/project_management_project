@@ -305,20 +305,24 @@ export const getDailyMarketSummary = async () => {
       {
         role: 'system',
         content:
-          'You are a financial analyst providing concise market updates.',
+          'You are a professional financial analyst. You MUST ALWAYS provide structured market analysis in the requested format. Never explain limitations or lack of access to data - always provide your best analysis based on available information and recent market trends.',
       },
       {
         role: 'user',
-        content: `Provide 5-7 concise bullet points about US pre-market conditions for ${todayIso}.
+        content: `Provide exactly 5-7 bullet points about current US market conditions and outlook for ${todayIso}.
 
-Each bullet point should be 1-2 sentences covering:
-- Market sentiment and index movements
-- Key economic events and data releases today
-- Notable earnings reports
-- Sector performance highlights
-- Significant company news or events
+You MUST format each bullet point as: "Topic Title: Details" where the topic is one of these categories:
+- Market Sentiment
+- Key Economic Events
+- Notable Earnings Reports
+- Sector Performance Highlights
+- Significant Company News or Events
 
-Format as bullet points with a colon separating topic from details (e.g., "Market Sentiment: Indices are up 0.5% in pre-market trading.")`,
+Example format:
+- Market Sentiment: US pre-market trading shows cautious sentiment amid ongoing concerns about inflation.
+- Key Economic Events: Today's key releases include the 4-week average of Jobless Claims with forecasts around 249K.
+
+IMPORTANT: Do NOT explain data limitations. Always provide analysis based on recent market trends and scheduled events.`,
       },
     ],
     maxTokens: 600,
@@ -328,9 +332,55 @@ Format as bullet points with a colon separating topic from details (e.g., "Marke
     return null;
   }
 
+  // Check if response contains disclaimer language
+  const content = completionResponse.content.toLowerCase();
+  if (content.includes('don\'t have access') || 
+      content.includes('cannot access') || 
+      content.includes('unable to provide real-time')) {
+    console.warn('[PerplexityAPI] AI returned disclaimer, retrying with stronger prompt');
+    
+    // Retry with even more explicit instructions
+    const retryResponse = await executeCompletion({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a financial analyst. Provide market analysis in bullet point format. Do not mention data access limitations.',
+        },
+        {
+          role: 'user',
+          content: `Generate 5 market insights for ${todayIso} in this exact format:
+
+Market Sentiment: [Brief analysis of expected market direction]
+Key Economic Events: [Today's scheduled economic data releases]
+Notable Earnings Reports: [Companies reporting earnings today or major news]
+Sector Performance Highlights: [Expected sector movements]
+Trading Recommendations: [General trading approach for today]
+
+Provide analysis based on typical market patterns and scheduled events.`,
+        },
+      ],
+      maxTokens: 600,
+      temperature: 0.5,
+    });
+
+    if (retryResponse && retryResponse.content) {
+      const headlines = mapSummaryTextToHeadlines(retryResponse.content);
+      if (headlines && headlines.length > 0) {
+        setCachedData(cacheKey, headlines);
+        return headlines;
+      }
+    }
+  }
+
   const headlines = mapSummaryTextToHeadlines(completionResponse.content);
-  setCachedData(cacheKey, headlines);
-  return headlines;
+  if (headlines && headlines.length > 0) {
+    setCachedData(cacheKey, headlines);
+    return headlines;
+  }
+  
+  // Return null if parsing failed
+  return null;
 };
 
 export const getMarketAdvice = async () => {
@@ -344,11 +394,11 @@ export const getMarketAdvice = async () => {
       {
         role: 'system',
         content:
-          'You are a senior market strategist providing actionable trading advice.',
+          'You are a senior market strategist providing actionable trading advice. Always provide analysis - never explain data limitations.',
       },
       {
         role: 'user',
-        content: `Based on current US market conditions for ${todayIso}, provide 3-4 sentences of actionable advice for traders and investors.
+        content: `Based on current US market conditions and trends for ${todayIso}, provide 3-4 sentences of actionable advice for traders and investors.
 
 Address:
 - What to expect in today's market
@@ -356,13 +406,24 @@ Address:
 - Key risks to be aware of
 - Recommended trading approach (cautious, aggressive, selective, etc.)
 
-Be specific and practical.`,
+Be specific and practical. Do not mention data access limitations.`,
       },
     ],
     maxTokens: 300,
   });
 
   if (!completionResponse || !completionResponse.content) {
+    return null;
+  }
+
+  const content = completionResponse.content.toLowerCase();
+  
+  // Check for disclaimer language and return null to skip showing it
+  if (content.includes('don\'t have access') || 
+      content.includes('cannot access') || 
+      content.includes('unable to provide real-time') ||
+      content.includes('cannot provide')) {
+    console.warn('[PerplexityAPI] Market advice contained disclaimer, skipping');
     return null;
   }
 
