@@ -336,32 +336,43 @@ export default function StockChart({
 
   // Calculate technical indicators on visible data
   const indicators = React.useMemo(() => {
-    if (!visibleData.length || !selectedIndicators.length) {
+    if (!visibleData || !visibleData.length || !selectedIndicators || !selectedIndicators.length) {
       return [];
     }
 
-    const availableIndicators = getAvailableIndicators();
-    return selectedIndicators
-      .map((indicatorId) => {
-        const indicator = availableIndicators.find((ind) => ind.id === indicatorId);
-        if (!indicator) return null;
+    if (!data || !data.length) {
+      return [];
+    }
 
-        try {
-          // Calculate indicators on full data but filter to visible range
-          const calculatedData = indicator.calculate(data);
-          const visibleTimestamps = new Set(visibleData.map(d => d.timestamp));
-          const visibleIndicatorData = calculatedData.filter(d => visibleTimestamps.has(d.timestamp));
+    try {
+      const availableIndicators = getAvailableIndicators();
+      return selectedIndicators
+        .map((indicatorId) => {
+          const indicator = availableIndicators.find((ind) => ind.id === indicatorId);
+          if (!indicator) return null;
 
-          return {
-            ...indicator,
-            data: visibleIndicatorData,
-          };
-        } catch (err) {
-          console.error(`Error calculating ${indicator.name}:`, err);
-          return null;
-        }
-      })
-      .filter(Boolean);
+          try {
+            // Calculate indicators on full data but filter to visible range
+            const calculatedData = indicator.calculate(data);
+            if (!calculatedData || !calculatedData.length) return null;
+
+            const visibleTimestamps = new Set(visibleData.map(d => d.timestamp));
+            const visibleIndicatorData = calculatedData.filter(d => visibleTimestamps.has(d.timestamp));
+
+            return {
+              ...indicator,
+              data: visibleIndicatorData,
+            };
+          } catch (err) {
+            console.error(`Error calculating ${indicator.name}:`, err);
+            return null;
+          }
+        })
+        .filter(Boolean);
+    } catch (err) {
+      console.error('Error calculating indicators:', err);
+      return [];
+    }
   }, [data, visibleData, selectedIndicators]);
 
   const { changePercent, isPositive } = getChangeMeta(data);
@@ -494,7 +505,7 @@ export default function StockChart({
     );
   }
 
-  if (data.length === 0) {
+  if (!data || data.length === 0 || !visibleData || visibleData.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>{error || 'No chart data available'}</Text>
