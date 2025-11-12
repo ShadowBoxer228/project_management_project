@@ -1,7 +1,4 @@
-const FINNHUB_API_KEY =
-  process.env?.EXPO_PUBLIC_FINNHUB_API_KEY ||
-  process.env?.FINNHUB_API_KEY ||
-  'd3scib9r01qs1aps7j90d3scib9r01qs1aps7j9g';
+const FINNHUB_API_KEY = 'd3scib9r01qs1aps7j90d3scib9r01qs1aps7j9g';
 const BASE_URL = 'https://finnhub.io/api/v1';
 
 // Cache for API responses to minimize API calls

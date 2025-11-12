@@ -1,5 +1,4 @@
-const PERPLEXITY_API_KEY =
-  process.env.PERPLEXITY_API_KEY || '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';
+const PERPLEXITY_API_KEY = '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';
 const BASE_URL = 'https://api.perplexity.ai/search';
 const COMPLETIONS_URL = 'https://api.perplexity.ai/chat/completions';
 
