@@ -175,51 +175,6 @@ const PortfolioStats = ({ holdings, prices, companyProfiles }) => {
         </View>
       )}
 
-      {/* Sector Allocation Card */}
-      {stats.sectorAllocation.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sector Allocation</Text>
-          {stats.sectorAllocation.map((sector, index) => (
-            <View key={index} style={styles.sectorRow}>
-              <View style={styles.sectorInfo}>
-                <Text style={styles.sectorName}>{sector.sector}</Text>
-                <Text style={styles.sectorValue}>{formatCurrency(sector.value)}</Text>
-              </View>
-              <View style={styles.sectorBarContainer}>
-                <View
-                  style={[
-                    styles.sectorBar,
-                    { width: `${sector.percentage}%` }
-                  ]}
-                />
-                <Text style={styles.sectorPercent}>
-                  {formatPercentage(sector.percentage)}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Diversification Score Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Diversification</Text>
-        <View style={styles.diversificationRow}>
-          <Text style={styles.label}>Number of Holdings:</Text>
-          <Text style={styles.value}>{holdings.length}</Text>
-        </View>
-        <View style={styles.diversificationRow}>
-          <Text style={styles.label}>Sectors:</Text>
-          <Text style={styles.value}>{stats.sectorAllocation.length}</Text>
-        </View>
-        <Text style={styles.diversificationHint}>
-          {holdings.length < 5
-            ? 'Consider adding more stocks for better diversification'
-            : holdings.length < 10
-            ? 'Good diversification. Consider expanding to more sectors.'
-            : 'Well diversified portfolio!'}
-        </Text>
-      </View>
     </ScrollView>
   );
 };

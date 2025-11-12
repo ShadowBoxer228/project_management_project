@@ -196,6 +196,24 @@ const PortfolioStatisticsScreen = ({ navigation }) => {
                 </View>
               ))}
             </View>
+            <View style={styles.divider} />
+            <View style={styles.diversificationInfo}>
+              <View style={styles.diversificationRow}>
+                <Text style={styles.label}>Number of Holdings:</Text>
+                <Text style={styles.value}>{holdings.length}</Text>
+              </View>
+              <View style={styles.diversificationRow}>
+                <Text style={styles.label}>Sectors:</Text>
+                <Text style={styles.value}>{sectorData.length}</Text>
+              </View>
+              <Text style={styles.diversificationHint}>
+                {holdings.length < 5
+                  ? 'Consider adding more stocks for better diversification'
+                  : holdings.length < 10
+                  ? 'Good diversification. Consider expanding to more sectors.'
+                  : 'Well diversified portfolio!'}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -316,6 +334,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: theme.colors.textSecondary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: theme.spacing.md,
+  },
+  diversificationInfo: {
+    marginTop: theme.spacing.sm,
+  },
+  diversificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  label: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  value: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.text,
+  },
+  diversificationHint: {
+    marginTop: theme.spacing.sm,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 });
 

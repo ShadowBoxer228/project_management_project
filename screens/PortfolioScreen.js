@@ -28,21 +28,28 @@ const PortfolioScreen = ({ navigation }) => {
       <Tab.Navigator
         screenOptions={{
           tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.textSecondary,
+          tabBarInactiveTintColor: theme.colors.text,
           tabBarLabelStyle: {
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: '600',
             textTransform: 'none',
+            marginTop: 0,
           },
           tabBarStyle: {
-            backgroundColor: theme.colors.background,
-            elevation: 0,
-            shadowOpacity: 0,
+            backgroundColor: theme.colors.cardBackground,
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
           },
           tabBarIndicatorStyle: {
             backgroundColor: theme.colors.primary,
             height: 3,
           },
+          tabBarPressColor: theme.colors.surface,
         }}
       >
         <Tab.Screen
